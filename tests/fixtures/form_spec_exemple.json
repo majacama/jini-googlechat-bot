@@ -1,0 +1,39 @@
+{
+  "form_id": "onboarding-fournisseur-v1",
+  "title": "Onboarding fournisseur",
+  "language": "fr",
+  "intro_message": "Bonjour, je vais te poser quelques questions pour créer la fiche fournisseur.",
+  "global_instructions": "Ton professionnel et concis. Une question à la fois. Si l'utilisateur hésite, propose un exemple.",
+  "fields": [
+    {
+      "id": "nom_fournisseur",
+      "required": true,
+      "max_attempts": 3,
+      "json_schema": {"type": "string", "minLength": 2},
+      "question_hint": "Quel est le nom exact du fournisseur (raison sociale) ?",
+      "constraints": "Doit correspondre à la raison sociale légale, pas un nom commercial.",
+      "format_advice": "Pas d'abréviation. Ex: 'Acme SAS', pas 'Acme'.",
+      "examples": ["Acme SAS", "Renault Group"]
+    },
+    {
+      "id": "date_debut",
+      "required": true,
+      "max_attempts": 3,
+      "json_schema": {"type": "string", "format": "date"},
+      "question_hint": "À quelle date le contrat démarre-t-il ?",
+      "constraints": "Doit être au format ISO AAAA-MM-JJ.",
+      "format_advice": "Accepte les formats naturels en entrée mais convertis toujours en ISO.",
+      "examples": ["2026-03-15"]
+    },
+    {
+      "id": "commentaire",
+      "required": false,
+      "max_attempts": 2,
+      "json_schema": {"type": "string", "minLength": 3},
+      "question_hint": "Un commentaire à ajouter ?",
+      "constraints": "",
+      "format_advice": "Au moins 3 caractères.",
+      "examples": ["RAS"]
+    }
+  ]
+}

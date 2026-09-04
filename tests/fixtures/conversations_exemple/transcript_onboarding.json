@@ -1,0 +1,23 @@
+{
+  "form_id": "onboarding-fournisseur-v1",
+  "turns": [
+    {
+      "user_message": "Acme SAS",
+      "expected_action": "confirm_value",
+      "expected_field_id": "nom_fournisseur",
+      "expected_extracted_value": "Acme SAS"
+    },
+    {
+      "user_message": "quinze mars deux mille vingt-six",
+      "expected_action": "confirm_value",
+      "expected_field_id": "date_debut",
+      "expected_extracted_value": "2026-03-15"
+    },
+    {
+      "user_message": "je ne sais pas trop",
+      "expected_action": "clarify_needed",
+      "expected_field_id": "commentaire",
+      "expected_extracted_value": null
+    }
+  ]
+}
