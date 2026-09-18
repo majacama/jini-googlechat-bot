@@ -2,7 +2,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from app.config import get_settings
-from app.core.text_utils import render_template
+from app.core.text_utils import render_template, resolve_placeholders
 from app.core.validation import required_fields_complete, validate_field
 from app.models.conversation_state import (
     AgentAction,
@@ -26,15 +26,15 @@ class TurnResult:
 
 
 def opening_message(state: ConversationState) -> str:
-    intro = state.form_spec.intro_message.strip()
+    intro = resolve_placeholders(state.form_spec.intro_message.strip(), state.answers)
     if state.phase == "interlocutor":
         gate = state.form_spec.interlocutor_validation
-        question = (gate.question if gate else "").strip()
+        question = resolve_placeholders((gate.question if gate else "").strip(), state.answers)
         if intro and question:
             return f"{intro}\n\n{question}"
         return intro or question
     field = state.form_spec.field_by_id(state.current_field_id or "")
-    question = field.question_hint if field else ""
+    question = resolve_placeholders(field.question_hint, state.answers) if field else ""
     if intro and question:
         return f"{intro}\n\n{question}"
     return intro or question
@@ -99,6 +99,7 @@ def apply_interlocutor(state: ConversationState, action: AgentAction) -> TurnRes
             email = action.extracted_value.strip()
         if not email:
             ask = gate.if_no.ask_for_replacement if gate.if_no else "Peux-tu me donner un e-mail ?"
+            ask = resolve_placeholders(ask, state.answers)
             return _append_agent(state, None, action.message_to_user or ask)
         name = (action.replacement_name or "").strip() or None
         ack = action.message_to_user or f"Merci, je contacte {name or email}."
@@ -112,6 +113,7 @@ def apply_interlocutor(state: ConversationState, action: AgentAction) -> TurnRes
 
     if action.action == "interlocutor_yes":
         ack = gate.if_yes.ack if gate.if_yes else "Parfait, on enchaîne."
+        ack = resolve_placeholders(ack, state.answers)
         return _enter_questionnaire(state, ack)
 
     if action.action == "interlocutor_no":
@@ -121,11 +123,13 @@ def apply_interlocutor(state: ConversationState, action: AgentAction) -> TurnRes
             if gate.if_no
             else "Peux-tu m'indiquer la personne à contacter ?"
         )
+        ask = resolve_placeholders(ask, state.answers)
         return _append_agent(state, None, action.message_to_user or ask)
 
     if action.action == "interlocutor_unknown":
         unknown = gate.if_unknown
         ack = unknown.ack if unknown else "Merci, je transmets le sujet."
+        ack = resolve_placeholders(ack, state.answers)
         record_agent_message(state, ack)
         # Filet de sécurité : un formulaire qui ne configure pas (ou configure
         # incomplètement) if_unknown ne doit jamais aboutir à un abandon
@@ -139,6 +143,7 @@ def apply_interlocutor(state: ConversationState, action: AgentAction) -> TurnRes
             "être validé comme interlocuteur et n'a pas indiqué de remplaçant. "
             "Space : {space_id}."
         )
+        message_template = resolve_placeholders(message_template, state.answers)
         escalate_message = render_template(
             message_template,
             {
@@ -163,6 +168,7 @@ def apply_interlocutor(state: ConversationState, action: AgentAction) -> TurnRes
     fallback = gate.question if state.phase == "interlocutor" else (
         gate.if_no.ask_for_replacement if gate.if_no else gate.question
     )
+    fallback = resolve_placeholders(fallback, state.answers)
     return _append_agent(state, None, action.message_to_user or fallback)
 
 
@@ -186,11 +192,22 @@ def record_agent_message(
 
 def _enter_questionnaire(state: ConversationState, ack: str) -> TurnResult:
     state.phase = "questionnaire"
-    first = state.form_spec.fields[0]
-    state.current_field_id = first.id
     state.current_attempt_count = 0
-    text = f"{ack.strip()}\n\n{first.question_hint}" if ack and ack.strip() else first.question_hint
-    return _append_agent(state, first, text)
+    ack = (ack or "").strip()
+    # Des champs peuvent déjà être pré-remplis (field_values passés au
+    # déclenchement) : on saute directement au premier qui manque encore.
+    next_field = state.form_spec.next_pending_field(state.answers, state.skipped_field_ids)
+    if next_field is None:
+        if required_fields_complete(state.form_spec, state.answers):
+            message = f"{ack}\n\nMerci, j'ai déjà tout ce qu'il me faut." if ack else "Merci, j'ai déjà tout ce qu'il me faut."
+            return _complete(state, message)
+        state.current_field_id = None
+        return TurnResult(state=state, message_to_user=ack or "Merci.")
+
+    state.current_field_id = next_field.id
+    question = resolve_placeholders(next_field.question_hint, state.answers)
+    text = f"{ack}\n\n{question}" if ack else question
+    return _append_agent(state, next_field, text)
 
 
 def _try_accept(state: ConversationState, field: FieldSpec, action: AgentAction) -> TurnResult:
@@ -213,7 +230,7 @@ def _try_accept(state: ConversationState, field: FieldSpec, action: AgentAction)
 
     reformulation = action.message_to_user
     if not reformulation or action.action == "confirm_value":
-        reformulation = _default_reformulation(field, result.error)
+        reformulation = _default_reformulation(field, result.error, state.answers)
     return _append_agent(state, field, reformulation)
 
 
@@ -222,7 +239,7 @@ def _accept_value(
 ) -> TurnResult:
     state.answers[field.id] = value
     state.current_attempt_count = 0
-    stop_message = _stop_message(field, value)
+    stop_message = _stop_message(field, value, state.answers)
     if stop_message is not None:
         record_agent_message(state, stop_message, field.id)
         return TurnResult(state=state, message_to_user=stop_message, abandon=True)
@@ -233,17 +250,18 @@ def _accept_value(
         return _complete(state, confirmation)
 
     state.current_field_id = next_field.id
-    text = f"C'est noté.\n\n{next_field.question_hint}"
+    question = resolve_placeholders(next_field.question_hint, state.answers)
+    text = f"C'est noté.\n\n{question}"
     return _append_agent(state, next_field, text)
 
 
-def _stop_message(field: FieldSpec, value: Any) -> str | None:
+def _stop_message(field: FieldSpec, value: Any, answers: dict[str, Any]) -> str | None:
     if not field.stop_values:
         return None
     needle = str(value).strip()
     for key, text in field.stop_values.items():
         if key.strip().lower() == needle.lower():
-            return text
+            return resolve_placeholders(text, answers)
     return None
 
 
@@ -259,7 +277,8 @@ def _skip_optional(state: ConversationState, field: FieldSpec) -> TurnResult:
         return _append_agent(state, field, skip_msg)
 
     state.current_field_id = next_field.id
-    return _append_agent(state, next_field, f"{skip_msg}\n\n{next_field.question_hint}")
+    question = resolve_placeholders(next_field.question_hint, state.answers)
+    return _append_agent(state, next_field, f"{skip_msg}\n\n{question}")
 
 
 def _complete(state: ConversationState, message: str) -> TurnResult:
@@ -282,14 +301,14 @@ def _resolve_field(state: ConversationState, action: AgentAction) -> FieldSpec |
     return state.form_spec.field_by_id(field_id)
 
 
-def _default_reformulation(field: FieldSpec, error: str | None) -> str:
+def _default_reformulation(field: FieldSpec, error: str | None, answers: dict[str, Any]) -> str:
     parts = [
         "Je n'ai pas pu enregistrer cette réponse telle quelle.",
-        field.format_advice or field.constraints,
+        resolve_placeholders(field.format_advice or field.constraints, answers),
     ]
     if field.examples:
         parts.append(f"Exemple attendu : {field.examples[0]}")
     if error:
         parts.append(f"Détail : {error}")
-    parts.append(field.question_hint)
+    parts.append(resolve_placeholders(field.question_hint, answers))
     return " ".join(part for part in parts if part)

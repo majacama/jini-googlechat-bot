@@ -1,4 +1,5 @@
 import logging
+from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from pydantic import BaseModel, HttpUrl
@@ -20,6 +21,10 @@ class StartRequest(BaseModel):
     webhook_url: HttpUrl
     contact: Contact | None = None
     webhook_secret: str | None = None
+    # Valeurs de champs (id -> valeur) connues au déclenchement : la question
+    # correspondante est sautée. Validées contre le json_schema du champ ;
+    # une valeur invalide est ignorée (la question est posée normalement).
+    field_values: dict[str, Any] | None = None
 
 
 class StartResponse(BaseModel):
@@ -62,6 +67,7 @@ def start_conversation(
             repo=repo,
             chat_client=chat_client,
             webhook_secret=payload.webhook_secret,
+            field_values=payload.field_values,
         )
     except ConversationAlreadyActive as exc:
         raise HTTPException(

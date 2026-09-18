@@ -10,6 +10,7 @@ from app.core.state_machine import (
     record_agent_message,
     record_user_message,
 )
+from app.core.validation import validate_field
 from app.core.webhook import deliver_completion
 from app.models.conversation_state import ConversationState
 from app.models.form_spec import Contact, FormSpec, derive_target_schema
@@ -33,9 +34,10 @@ def build_initial_state(
     form_spec: FormSpec,
     webhook_url: str,
     webhook_secret: str | None = None,
+    field_values: dict[str, Any] | None = None,
 ) -> ConversationState:
     use_gate = form_spec.uses_interlocutor_gate()
-    return ConversationState(
+    state = ConversationState(
         space_id=space_id,
         form_id=form_spec.form_id,
         contact=contact,
@@ -44,8 +46,30 @@ def build_initial_state(
         webhook_url=webhook_url,
         webhook_secret=webhook_secret,
         phase="interlocutor" if use_gate else "questionnaire",
-        current_field_id=None if use_gate else form_spec.fields[0].id,
     )
+    for field_id, raw_value in (field_values or {}).items():
+        field = form_spec.field_by_id(field_id)
+        if field is None:
+            logger.warning(
+                "field_values_unknown_field", extra={"field_id": field_id, "form_id": form_spec.form_id}
+            )
+            continue
+        result = validate_field(field, raw_value)
+        if not result.ok:
+            # Valeur fournie mais invalide : on ne la prend pas silencieusement,
+            # la question sera posée normalement dans le questionnaire.
+            logger.warning(
+                "field_values_invalid",
+                extra={"field_id": field_id, "form_id": form_spec.form_id, "error": result.error},
+            )
+            continue
+        state.answers[field_id] = result.value
+
+    if not use_gate:
+        next_field = form_spec.next_pending_field(state.answers, state.skipped_field_ids)
+        state.current_field_id = next_field.id if next_field else None
+
+    return state
 
 
 def begin_conversation(
@@ -55,11 +79,14 @@ def begin_conversation(
     repo: ConversationRepo,
     chat_client,
     webhook_secret: str | None = None,
+    field_values: dict[str, Any] | None = None,
 ) -> ConversationState:
     """Cas C (déclenchement externe, /start) : ouvre le DM puis lance la
-    session."""
+    session. Seul ce cas peut pré-remplir des champs (field_values)."""
     space_id = chat_client.create_dm(contact.user_id or contact.user_email)
-    return _start_session(space_id, contact, form_spec, webhook_url, repo, chat_client, webhook_secret)
+    return _start_session(
+        space_id, contact, form_spec, webhook_url, repo, chat_client, webhook_secret, field_values
+    )
 
 
 def resume_in_space(
@@ -72,7 +99,8 @@ def resume_in_space(
     webhook_secret: str | None = None,
 ) -> ConversationState:
     """Cas B (déclenchement depuis le chat) : le DM existe déjà, on ne le
-    recrée pas — on lance juste la session dedans."""
+    recrée pas — on lance juste la session dedans. Pas de field_values ici :
+    seul /start (cas C) en fournit pour l'instant."""
     return _start_session(space_id, contact, form_spec, webhook_url, repo, chat_client, webhook_secret)
 
 
@@ -84,6 +112,7 @@ def _start_session(
     repo: ConversationRepo,
     chat_client,
     webhook_secret: str | None = None,
+    field_values: dict[str, Any] | None = None,
 ) -> ConversationState:
     existing = repo.get(space_id)
     if existing is not None and existing.status == "in_progress":
@@ -94,6 +123,7 @@ def _start_session(
         form_spec=form_spec,
         webhook_url=webhook_url,
         webhook_secret=webhook_secret,
+        field_values=field_values,
     )
     repo.save(state)
     send_opening(state, repo, chat_client)
@@ -252,6 +282,10 @@ def _apply_side_effects(result, repo: ConversationRepo, chat_client):
                 repo=repo,
                 chat_client=chat_client,
                 webhook_secret=result.state.webhook_secret,
+                # La phase interlocuteur précède le questionnaire : à ce
+                # stade, state.answers ne contient que d'éventuels
+                # field_values d'origine, à reporter sur le remplaçant.
+                field_values=dict(result.state.answers),
             )
         except ChatApiError:
             logger.exception(

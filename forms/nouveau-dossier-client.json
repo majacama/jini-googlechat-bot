@@ -33,7 +33,7 @@
   "interlocutor_validation": {
     "_aide": "Toujours après l'intro, avant le questionnaire.",
     "enabled": true,
-    "question": "Es-tu responsable du dossier client ACME ? Donc la bonne personne pour le paramétrer avec moi ?",
+    "question": "Es-tu responsable du dossier client {{nom_dossier}} ? Donc la bonne personne pour le paramétrer avec moi ?",
     "if_yes": {
       "ack": "Parfait, on enchaîne."
     },
@@ -44,7 +44,7 @@
     "if_unknown": {
       "ack": "Merci, je vais escalader le ticket aux OPS pour qu'ils prennent en charge cette demande.",
       "escalate_to_chat_email": "fdiaz@jin.fr",
-      "escalation_message": "Formulaire {form_id} : {recipient.email} ({recipient.name}) n'est pas le bon interlocuteur pour le dossier client ACME et n'a pas pu indiquer de remplaçant. Space : {space_id}."
+      "escalation_message": "Formulaire {form_id} : {recipient.email} ({recipient.name}) n'est pas le bon interlocuteur pour le dossier client {{nom_dossier}} et n'a pas pu indiquer de remplaçant. Space : {space_id}."
     }
   },
 
@@ -80,7 +80,7 @@
         "id": "nom_dossier",
         "required": true,
         "max_attempts": 3,
-        "question": "Est-ce que le nom de dossier _acme est correct ? Sinon propose un autre nom",
+        "question": "Est-ce que le nom de dossier \"{{nom_dossier}}\" est correct ? Sinon propose un autre nom",
         "consignes": "Nom technique du dossier Drive. Minuscules, commence forcément par un underscore, pas d'espaces (les remplacer par des tirets hauts). Si le nom commercial est donné (Moulin de Valdonne, Sephora), proposer _moulin-de-valdonne / _sephora et confirmer.",
         "format_attendu": "Chaîne minuscule, tiret bas obligatoire en début de nom, espaces remplacés par des tirets hauts. Ex. _moulin-de-valdonne",
         "exemples": ["_sephora", "_loreal", "_moulin-de-valdonne"],

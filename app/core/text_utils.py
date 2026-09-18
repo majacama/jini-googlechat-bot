@@ -70,6 +70,24 @@ def render_template(template: str, values: dict[str, str]) -> str:
     return text
 
 
+PLACEHOLDER_RE = re.compile(r"\{\{(\w+)\}\}")
+
+
+def resolve_placeholders(text: str, answers: dict[str, Any]) -> str:
+    """Remplace {{field_id}} par la reponse connue, ou par une chaine vide
+    si le champ n'a pas encore de valeur."""
+
+    def _replace(match: re.Match[str]) -> str:
+        value = answers.get(match.group(1))
+        if value is None:
+            return ""
+        if isinstance(value, list):
+            return ", ".join(str(item) for item in value)
+        return str(value)
+
+    return PLACEHOLDER_RE.sub(_replace, text or "")
+
+
 def schema_allows_array(schema: dict[str, Any] | None) -> bool:
     return "array" in _schema_types(schema or {})
 

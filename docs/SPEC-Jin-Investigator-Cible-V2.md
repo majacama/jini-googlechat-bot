@@ -317,21 +317,57 @@ n'est pas renseigné. Correctif :
 
 - ACL du connecteur Drive de Vertex AI Search (§6) — bloquant pour le cas A
   si mal compris.
-- **Le routeur (commit `c985556`) n'a été vérifié qu'avec `LLM_PROVIDER=stub`
-  et un `FakeChatClient`.** Jamais testé avec un vrai appel Gemini ni un
-  vrai événement Google Chat entrant. En particulier, `resolve_sender_email`
-  suppose que `sender.email` peut être absent d'un événement `/chat` réel et
-  retombe sur une résolution Directory API inverse (`chat_client.py`) —
-  cette hypothèse elle-même n'est pas vérifiée en conditions réelles.
+- **Routeur testé en réel le 2026-09-18, un bug trouvé et corrigé.** Premier
+  message live (« il faut créer un nouveau dossier client ») : le bot a
+  répondu qu'il ne pouvait démarrer aucun process. Cause : le `Dockerfile` ne
+  copiait que `app/`, jamais `forms/` — `process_registry.py` trouvait un
+  registre vide en prod alors qu'il fonctionnait en local (commit `987727a`).
+  Après correctif et redéploiement, le cas B fonctionne. `resolve_sender_email`
+  (sender.email direct vs résolution Directory inverse) reste à confirmer au
+  premier déclenchement chat réussi — pas encore observé explicitement lequel
+  des deux chemins a servi.
 - **Personnalisation du texte de formulaire pour le cas B (§7.2 point 3) —
-  non résolu, et maintenant un vrai bug latent, pas juste une note de
-  design.** `nouveau-dossier-client.json` a gagné `trigger_intent` sans que
-  ce point soit tranché : si quelqu'un déclenche ce process depuis le chat
-  pour un client autre qu'ACME, le bot demandera quand même « Es-tu
-  responsable du dossier client ACME ? ». À corriger (option a ou b) avant
-  tout test réel du cas B sur ce formulaire.
+  résolu, mécanisme différent de ce qui était envisagé ici.** Pas de bloc
+  `parameters` séparé : n'importe quel `id` de `questionnaire.fields` peut
+  recevoir une valeur au déclenchement (`field_values` sur `/start`, cas C
+  uniquement pour l'instant — le cas B ne pré-remplit toujours rien). Tout
+  texte du formulaire contenant `{{field_id}}` est résolu dynamiquement avec
+  la valeur connue à cet instant (vide sinon). `nouveau-dossier-client.json`
+  n'a plus « ACME » en dur. Détail du mécanisme : §12.
 - Sous-collection `sessions/` vs document réécrit à chaque fois (§3) — arbitrage
   effort d'implémentation contre traçabilité.
 - Budget de latence Cloud Run une fois le routeur (un aller-retour LLM
   supplémentaire) et le RAG dans la boucle — à mesurer contre le timeout
   actuel de 60s avant d'exclure un ajustement de la config Cloud Run.
+
+## 12. Pré-remplissage de champs et personnalisation des textes (livré, 2026-09-18)
+
+Commit `<field_values>`. Remplace ce qui était esquissé en §7.2 point 3 — pas
+de nouveau bloc de spec, réutilisation directe de `questionnaire.fields`.
+
+**`field_values` sur `/start` (cas C uniquement pour l'instant)** : un objet
+`{field_id: valeur}` dans le payload. Chaque valeur est validée contre le
+`json_schema` du champ correspondant :
+- valide → posée directement dans `answers`, sa question n'est jamais posée
+  (`next_pending_field` la saute naturellement, aucune nouvelle phase créée) ;
+- invalide, ou `field_id` inconnu → ignorée silencieusement (avec un log
+  `field_values_invalid` / `field_values_unknown_field`), la question est
+  posée normalement. Pas d'échec de la requête `/start` dans ce cas.
+
+**`{{field_id}}` dans n'importe quel texte du form spec** (question
+d'interlocuteur, acks, message d'escalade, question/consignes/format_advice
+d'un champ) est résolu à chaque envoi de message, avec la valeur connue à cet
+instant précis dans `state.answers` — vide si pas encore connue. Résolution
+par simple remplacement de sous-chaîne (`app/core/text_utils.py::
+resolve_placeholders`), appliquée **avant** `render_template` (l'ancien
+mécanisme à accolade simple `{form_id}`/`{recipient.email}`/`{space_id}`,
+qui continue de fonctionner sans changement sur le message d'escalade).
+
+**Ce qui n'est pas couvert** : le cas B (déclenché depuis le chat) ne
+pré-remplit jamais de `field_values` — confirmé comme non nécessaire pour
+l'instant, à revisiter si le routeur doit un jour extraire des valeurs du
+message déclencheur. Un champ pré-rempli qui porte une `stop_values` (ex.
+`creation_dossier=non`) n'interrompt pas la conversation avant même de
+l'ouvrir — le stop ne se déclenche que sur une réponse donnée en direct, pas
+sur un pré-remplissage. Non traité, à trancher si ce cas se présente
+réellement.

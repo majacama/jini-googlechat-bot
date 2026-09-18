@@ -18,7 +18,7 @@ def test_loads_nouveau_dossier_client_json() -> None:
     assert spec.uses_interlocutor_gate()
     nom = spec.field_by_id("nom_dossier")
     assert nom is not None
-    assert "_acme" in nom.question_hint
+    assert "{{nom_dossier}}" in nom.question_hint
     assert "underscore" in nom.constraints
     assert nom.format_advice.startswith("Chaîne minuscule")
     assert "_sephora" in nom.examples
