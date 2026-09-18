@@ -4,6 +4,7 @@ from typing import Any
 from app.core.chat_client import ChatApiError, resolve_sender_email
 from app.core.llm import decide_next_action, decide_route
 from app.core.process_registry import get_process_registry
+from app.core.rag import build_rag_cards, search_corpus
 from app.core.state_machine import (
     apply_action,
     opening_message,
@@ -192,11 +193,7 @@ def _route_new_conversation(
     repo: ConversationRepo,
     chat_client,
 ) -> None:
-    """Cas A/B : aucune session active sur ce canal, le routeur décide.
-
-    RAG (cas A) pas encore branché (Cible V2 §6) : on répond un message
-    d'attente plutôt que d'inventer une réponse.
-    """
+    """Cas A/B : aucune session active sur ce canal, le routeur décide."""
     if sender.get("type") == "BOT":
         return
 
@@ -212,10 +209,23 @@ def _route_new_conversation(
         return
 
     if route.action == "search_knowledge_base":
+        email = resolve_sender_email(sender)
+        query = route.query or text
+        try:
+            passages = search_corpus(query, user_email=email)
+        except Exception:
+            logger.exception("rag_search_crashed", extra={"space_id": space_id})
+            passages = []
+        if not passages:
+            chat_client.send_message(
+                space_id,
+                "Je n'ai rien trouvé dans le corpus JIN pour cette question.",
+            )
+            return
         chat_client.send_message(
             space_id,
-            "Je ne sais pas encore chercher dans le corpus JIN, cette capacité arrive bientôt. "
-            "Je peux en revanche démarrer certains traitements — dis-moi lequel t'intéresse.",
+            "Voici ce que j'ai trouvé :",
+            cards=build_rag_cards(passages),
         )
         return
 

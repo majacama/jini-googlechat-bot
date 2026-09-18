@@ -20,6 +20,8 @@ class Settings(BaseSettings):
     use_real_chat: bool = False
     chat_service_account: str = ""
     default_handoff_contact: str = "fdiaz@jin.fr"
+    discovery_engine_location: str = "eu"
+    discovery_engine_id: str = ""
 
 
 @lru_cache

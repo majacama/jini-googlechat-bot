@@ -22,7 +22,7 @@ class ChatApiError(RuntimeError):
 class ChatClient(Protocol):
     def create_dm(self, user_email: str) -> str: ...
 
-    def send_message(self, space_id: str, text: str) -> None: ...
+    def send_message(self, space_id: str, text: str, cards: list[dict[str, Any]] | None = None) -> None: ...
 
 
 class GoogleChatClient:
@@ -57,10 +57,13 @@ class GoogleChatClient:
             "« Jin Investigator Agent », envoie-lui un message, puis relance le test.",
         )
 
-    def send_message(self, space_id: str, text: str) -> None:
+    def send_message(self, space_id: str, text: str, cards: list[dict[str, Any]] | None = None) -> None:
+        payload: dict[str, Any] = {"text": text}
+        if cards:
+            payload["cardsV2"] = cards
         self._post(
             f"{CHAT_API}/{space_id}/messages",
-            {"text": text},
+            payload,
             action="spaces.messages.create",
         )
 
@@ -85,14 +88,16 @@ class FakeChatClient:
     def __init__(self) -> None:
         self.messages: list[tuple[str, str]] = []
         self.dms: list[str] = []
+        self.cards_sent: list[list[dict[str, Any]] | None] = []
 
     def create_dm(self, user_email: str) -> str:
         space_id = f"spaces/fake-{user_email}"
         self.dms.append(space_id)
         return space_id
 
-    def send_message(self, space_id: str, text: str) -> None:
+    def send_message(self, space_id: str, text: str, cards: list[dict[str, Any]] | None = None) -> None:
         self.messages.append((space_id, text))
+        self.cards_sent.append(cards)
         logger.info("fake_chat_send", extra={"space_id": space_id, "text": text})
 
 

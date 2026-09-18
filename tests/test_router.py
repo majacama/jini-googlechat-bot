@@ -33,7 +33,10 @@ def test_cold_message_starts_process_in_same_space() -> None:
     assert chat.messages[0][0] == SPACE_ID
 
 
-def test_cold_message_search_knowledge_base_is_a_placeholder_for_now() -> None:
+def test_cold_message_search_knowledge_base_without_results_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core import turn as turn_module
+
+    monkeypatch.setattr(turn_module, "search_corpus", lambda query, user_email=None: [])
     repo = MemoryConversationRepo()
     chat = FakeChatClient()
     process_user_message(
@@ -44,7 +47,28 @@ def test_cold_message_search_knowledge_base_is_a_placeholder_for_now() -> None:
         sender=SENDER_WITH_EMAIL,
     )
     assert repo.get(SPACE_ID) is None  # aucune session démarrée
-    assert "bientôt" in chat.messages[-1][1].lower() or "encore" in chat.messages[-1][1].lower()
+    assert "rien trouvé" in chat.messages[-1][1].lower()
+    assert chat.cards_sent[-1] is None
+
+
+def test_cold_message_search_knowledge_base_sends_cards(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core import turn as turn_module
+    from app.core.rag import RagPassage
+
+    passages = [RagPassage(title="Contrat cadre Sephora", link="https://drive.google.com/x", snippet="...")]
+    monkeypatch.setattr(turn_module, "search_corpus", lambda query, user_email=None: passages)
+    repo = MemoryConversationRepo()
+    chat = FakeChatClient()
+    process_user_message(
+        SPACE_ID,
+        "est-ce qu'on a déjà un contrat cadre avec Sephora ?",
+        repo,
+        chat,
+        sender=SENDER_WITH_EMAIL,
+    )
+    assert repo.get(SPACE_ID) is None  # le RAG ne demarre pas de session
+    assert chat.cards_sent[-1] is not None
+    assert chat.cards_sent[-1][0]["card"]["header"]["title"] == "Contrat cadre Sephora"
 
 
 def test_cold_message_empty_text_asks_for_clarification() -> None:
