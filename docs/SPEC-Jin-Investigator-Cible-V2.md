@@ -342,7 +342,7 @@ n'est pas renseigné. Correctif :
 
 ## 12. Pré-remplissage de champs et personnalisation des textes (livré, 2026-09-18)
 
-Commit `<field_values>`. Remplace ce qui était esquissé en §7.2 point 3 — pas
+Commit `2851d71`. Remplace ce qui était esquissé en §7.2 point 3 — pas
 de nouveau bloc de spec, réutilisation directe de `questionnaire.fields`.
 
 **`field_values` sur `/start` (cas C uniquement pour l'instant)** : un objet
