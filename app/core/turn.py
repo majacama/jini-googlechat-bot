@@ -16,6 +16,15 @@ from app.storage.base import ConversationRepo
 logger = logging.getLogger(__name__)
 
 
+class ConversationAlreadyActive(Exception):
+    """Un formulaire est deja in_progress sur cet espace ; on ne l'ecrase pas."""
+
+    def __init__(self, space_id: str, form_id: str) -> None:
+        self.space_id = space_id
+        self.form_id = form_id
+        super().__init__(f"Session active ({form_id}) sur {space_id}")
+
+
 def build_initial_state(
     space_id: str,
     contact: Contact,
@@ -46,6 +55,9 @@ def begin_conversation(
     webhook_secret: str | None = None,
 ) -> ConversationState:
     space_id = chat_client.create_dm(contact.user_id or contact.user_email)
+    existing = repo.get(space_id)
+    if existing is not None and existing.status == "in_progress":
+        raise ConversationAlreadyActive(space_id=space_id, form_id=existing.form_id)
     state = build_initial_state(
         space_id=space_id,
         contact=contact,
@@ -133,6 +145,19 @@ def _apply_side_effects(result, repo: ConversationRepo, chat_client):
             result.state.phase = "awaiting_replacement"
             result.message_to_user = (
                 f"Je n'arrive pas à ouvrir un chat avec {result.start_replacement.user_email}. "
+                "Peux-tu me donner un autre e-mail, ou dire si tu ne sais pas qui contacter ?"
+            )
+            return result
+        except ConversationAlreadyActive:
+            logger.info(
+                "replacement_already_active",
+                extra={"email": result.start_replacement.user_email},
+            )
+            result.abandon = False
+            result.state.status = "in_progress"
+            result.state.phase = "awaiting_replacement"
+            result.message_to_user = (
+                f"{result.start_replacement.user_email} a déjà un formulaire en cours avec moi. "
                 "Peux-tu me donner un autre e-mail, ou dire si tu ne sais pas qui contacter ?"
             )
             return result

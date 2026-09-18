@@ -123,7 +123,10 @@ def test_replacement_starts_new_conversation() -> None:
     )
     assert original.phase == "interlocutor"
     process_user_message(original.space_id, "non, contacte bob@jin.fr", repo, chat)
-    original_after = repo.get(original.space_id)
+    # Le canal d'alice est desormais libre (plus de session active)...
+    assert repo.get(original.space_id) is None
+    # ...mais la session abandonnee reste consultable pour l'historique.
+    original_after = repo.get_session(original.space_id, original.session_id)
     assert original_after is not None
     assert original_after.status == "abandoned"
     new_state = repo.get("spaces/fake-bob@jin.fr")

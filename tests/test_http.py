@@ -130,6 +130,67 @@ def test_start_accepts_conversation_json_and_recipient() -> None:
         app.dependency_overrides.clear()
 
 
+def test_start_refuses_when_session_already_active(form_spec) -> None:
+    get_settings.cache_clear()
+    settings = get_settings()
+    settings.start_endpoint_token = "tok"
+    repo = MemoryConversationRepo()
+    chat = FakeChatClient()
+    app.dependency_overrides[get_repo] = lambda: repo
+    app.dependency_overrides[get_chat_client] = lambda: chat
+    try:
+        client = TestClient(app)
+        payload = {
+            "contact": {"user_email": "collaborateur@jin.fr"},
+            "form_spec": form_spec.model_dump(),
+            "webhook_url": "https://example.test/ingest",
+        }
+        first = client.post("/start", json=payload, headers={"Authorization": "Bearer tok"})
+        assert first.status_code == 202
+
+        second = client.post("/start", json=payload, headers={"Authorization": "Bearer tok"})
+        assert second.status_code == 409
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_start_reuses_channel_once_previous_session_finished(form_spec) -> None:
+    get_settings.cache_clear()
+    settings = get_settings()
+    settings.start_endpoint_token = "tok"
+    repo = MemoryConversationRepo()
+    chat = FakeChatClient()
+    app.dependency_overrides[get_repo] = lambda: repo
+    app.dependency_overrides[get_chat_client] = lambda: chat
+    try:
+        client = TestClient(app)
+        payload = {
+            "contact": {"user_email": "collaborateur@jin.fr"},
+            "form_spec": form_spec.model_dump(),
+            "webhook_url": "https://example.test/ingest",
+        }
+        first = client.post("/start", json=payload, headers={"Authorization": "Bearer tok"})
+        space_id = first.json()["space_id"]
+        first_session_id = repo.get(space_id).session_id  # type: ignore[union-attr]
+
+        # La session se termine (abandon, sans passer par tout le questionnaire).
+        state = repo.get(space_id)
+        assert state is not None
+        state.status = "abandoned"
+        repo.save(state)
+        assert repo.get(space_id) is None  # canal libéré
+
+        second = client.post("/start", json=payload, headers={"Authorization": "Bearer tok"})
+        assert second.status_code == 202
+        new_state = repo.get(space_id)
+        assert new_state is not None
+        assert new_state.session_id != first_session_id
+        # l'ancienne session reste consultable pour l'historique
+        assert repo.get_session(space_id, first_session_id) is not None
+    finally:
+        app.dependency_overrides.clear()
+
+
 def test_parse_chat_event_addon_envelope() -> None:
     event_type, space_id, message = parse_chat_event(
         {

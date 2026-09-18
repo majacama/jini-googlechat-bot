@@ -1,5 +1,6 @@
 from datetime import UTC, datetime
 from typing import Any, Literal
+from uuid import uuid4
 
 from pydantic import BaseModel, Field
 
@@ -8,6 +9,10 @@ from app.models.form_spec import Contact, FormSpec
 
 def utc_now_iso() -> str:
     return datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def new_session_id() -> str:
+    return uuid4().hex
 
 
 class HistoryTurn(BaseModel):
@@ -42,6 +47,7 @@ class AgentAction(BaseModel):
 
 class ConversationState(BaseModel):
     space_id: str
+    session_id: str = Field(default_factory=new_session_id)
     form_id: str
     status: Literal["in_progress", "completed", "abandoned", "failed"] = "in_progress"
     contact: Contact

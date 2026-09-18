@@ -5,7 +5,7 @@ from pydantic import BaseModel, HttpUrl
 
 from app.core.auth import verify_start_token
 from app.core.chat_client import ChatApiError
-from app.core.turn import begin_conversation
+from app.core.turn import ConversationAlreadyActive, begin_conversation
 from app.dependencies import get_chat_client, get_repo
 from app.models.form_spec import Contact, FormSpec
 from app.storage.base import ConversationRepo
@@ -63,6 +63,11 @@ def start_conversation(
             chat_client=chat_client,
             webhook_secret=payload.webhook_secret,
         )
+    except ConversationAlreadyActive as exc:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Un formulaire ({exc.form_id}) est déjà en cours sur cet espace.",
+        ) from None
     except ChatApiError as exc:
         logger.exception("create_dm_failed", extra={"email": contact.user_email})
         raise HTTPException(
