@@ -1,11 +1,10 @@
-import logging
-
 from fastapi import FastAPI
 
 from app.config import get_settings
+from app.core.logging_config import configure_logging
 from app.routers import chat, start
 
-logging.basicConfig(level=logging.INFO)
+configure_logging()
 
 app = FastAPI(title="Jin Investigator Agent", version="0.1.0")
 app.include_router(start.router)
