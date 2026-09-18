@@ -35,10 +35,10 @@ Ne pas renommer le service Cloud Run, l’ID projet, ni le compte de service.
 | Cloud Run | `agent-formulaire-gchat` |
 | URL | `https://agent-formulaire-gchat-531758065224.europe-west1.run.app` |
 | Chat endpoint | cette URL + `/chat` (aussi `CHAT_AUDIENCE`) |
-| Firestore | native `(default)`, collection `conversations`, doc id = `space_id` avec `/` → `__` |
+| Firestore | native `(default)`, collection `conversations`, doc id = `space_id` avec `/` → `__` = **canal** (`active_session_id`) ; sous-collection `sessions/{session_id}` = historique des formulaires (voir Cible V2 §3, livré) |
 | LLM | Gemini `gemini-2.5-pro` via Vertex (`google-genai`), `thinking_budget=128` |
 | SA Chat | `agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com` |
-| Auth `/start` | Bearer `START_ENDPOINT_TOKEN` (encore `change-me` en POC) |
+| Auth `/start` | Bearer `START_ENDPOINT_TOKEN`, en Secret Manager (`start-endpoint-token`) depuis le 2026-09-18, monté via `--update-secrets` sur Cloud Run |
 | Auth `/chat` | JWT Google Chat (OIDC `chat@system.gserviceaccount.com`, fallback JWT n° projet) |
 | Cloud Run | `--allow-unauthenticated` (même service pour `/start` et `/chat`), `min-instances=1`, `--no-cpu-throttling`, timeout 60s |
 
@@ -232,7 +232,8 @@ Le destinataire est `recipient.email`. Répondre dans le DM Google Chat.
 - Tutoiement, une question à la fois, ton interne JIN.
 - Interlocuteur obligatoire avant le questionnaire ; redirection ou escalade OPS.
 - `creation_dossier=non` = stop métier, pas un formulaire « vide » webhooké.
-- Token `/start` encore `change-me` (POC).
+- Token `/start` en Secret Manager depuis le 2026-09-18 (`start-endpoint-token`), plus de `change-me` en prod.
+- `conversations/{space_id}` : canal + sous-collection `sessions/{session_id}` depuis le 2026-09-18 — un formulaire terminé libère le canal au lieu de le bloquer, `/start` refuse (409) d'écraser une session `in_progress`.
 - Webhook métier réel **pas** encore branché (catch `/dev/webhook` en dev).
 
 ---
@@ -241,7 +242,6 @@ Le destinataire est `recipient.email`. Répondre dans le DM Google Chat.
 
 - Redéployer Cloud Run si le code local (stop_values, Firestore nested lists, spec à jour) n’est pas sur la révision en prod.
 - Vrai webhook métier (création Drive / espace Chat), pas `/dev/webhook`.
-- `START_ENDPOINT_TOKEN` ≠ `change-me`.
 - Directory API fiable **sur Cloud Run** pour n’importe quel `@jin.fr` (rôle admin « Users → Lire » API sur le SA, voir SETUP-GCP §4.1). En local, Fred est résolu via userinfo.
 - Commit / push : beaucoup de fichiers encore uncommitted par rapport au commit initial.
 - Questions ACME / `_acme` encore en dur dans la spec JSON (paramétrer par dossier).

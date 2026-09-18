@@ -295,15 +295,17 @@ n'est pas renseigné. Correctif :
 
 ## 10. Ordre d'implémentation recommandé
 
-1. **Debloquants infra**, indépendants du reste, à faire avant tout test avec
-   quelqu'un d'autre que Fred : rôle Directory API sur le compte de service,
-   `START_ENDPOINT_TOKEN` vers Secret Manager.
-2. **Escalade (§8)** — isolé, rapide, aucune dépendance sur le reste.
-3. **Modèle de données (§3)** — fondation pour le routeur et pour la
-   réutilisation du canal après un formulaire terminé.
+1. **Debloquants infra** — `START_ENDPOINT_TOKEN` vers Secret Manager :
+   **fait (2026-09-18)**. Rôle Directory API sur le compte de service :
+   **toujours à faire**, reste bloquant pour tester avec quelqu'un d'autre
+   que Fred.
+2. **Escalade (§8)** : **fait (2026-09-18)**, commit `bdff011`.
+3. **Modèle de données (§3)** : **fait (2026-09-18)**, commit `2507c04` —
+   `conversations/{space_id}` = canal, `sessions/{session_id}` = historique,
+   `/start` refuse (409) d'écraser une session `in_progress`.
 4. **Routeur + registre (§4, §5)** — débloque le cas B en interne (sans
    encore le RAG, `chercher_dans_le_corpus` peut temporairement répondre
-   « fonctionnalité à venir »).
+   « fonctionnalité à venir »). **Prochaine étape.**
 5. **RAG (§6)** — après le spike de vérification des ACL Drive.
 6. **Bout en bout** sur les 3 cas avec un utilisateur réel autre que Fred,
    puis mise à jour de `SPEC-passation-Claude.md` avec le comportement
