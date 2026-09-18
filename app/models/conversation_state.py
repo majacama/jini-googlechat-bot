@@ -17,10 +17,26 @@ class HistoryTurn(BaseModel):
     ts: str = Field(default_factory=utc_now_iso)
 
 
+AgentActionName = Literal[
+    "ask",
+    "confirm_value",
+    "reformulate",
+    "complete",
+    "clarify_needed",
+    "skip",
+    "interlocutor_yes",
+    "interlocutor_no",
+    "interlocutor_unknown",
+    "provide_replacement",
+]
+
+
 class AgentAction(BaseModel):
-    action: Literal["ask", "confirm_value", "reformulate", "complete", "clarify_needed"]
+    action: AgentActionName
     field_id: str | None = None
-    extracted_value: Any | None = None
+    extracted_value: str | int | float | bool | list[Any] | None = None
+    replacement_name: str | None = None
+    replacement_email: str | None = None
     message_to_user: str
 
 
@@ -37,6 +53,7 @@ class ConversationState(BaseModel):
     skipped_field_ids: list[str] = Field(default_factory=list)
     current_field_id: str | None = None
     current_attempt_count: int = 0
+    phase: Literal["interlocutor", "awaiting_replacement", "questionnaire"] = "questionnaire"
     history: list[HistoryTurn] = Field(default_factory=list)
     created_at: str = Field(default_factory=utc_now_iso)
     updated_at: str = Field(default_factory=utc_now_iso)

@@ -17,8 +17,8 @@ echo [deploy] Projet %PROJECT% / region %REGION%
 call gcloud config set project %PROJECT%
 if errorlevel 1 exit /b 1
 
-echo [deploy] Activation des API Cloud Run / Cloud Build / Artifact Registry ...
-call gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com --project %PROJECT%
+echo [deploy] Activation des API Cloud Run / Cloud Build / Artifact Registry / Agent Platform / Firestore / Admin SDK ...
+call gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com aiplatform.googleapis.com firestore.googleapis.com admin.googleapis.com --project %PROJECT%
 if errorlevel 1 exit /b 1
 
 echo [deploy] Deploiement (2-5 min) ...
@@ -30,7 +30,9 @@ call gcloud run deploy %SERVICE% ^
   --min-instances 1 ^
   --max-instances 5 ^
   --memory 512Mi ^
-  --set-env-vars "APP_ENV=dev,GCP_PROJECT=%PROJECT%,GCP_REGION=%REGION%,FIRESTORE_COLLECTION=conversations,LLM_PROVIDER=stub,START_ENDPOINT_TOKEN=change-me,GOOGLE_CHAT_APP_ID=531758065224,CHAT_AUTH_DISABLED=1,USE_MEMORY_STORE=1,USE_REAL_CHAT=1,CHAT_SERVICE_ACCOUNT=agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com"
+  --no-cpu-throttling ^
+  --timeout 60 ^
+  --set-env-vars "APP_ENV=dev,GCP_PROJECT=%PROJECT%,GCP_REGION=%REGION%,FIRESTORE_COLLECTION=conversations,LLM_PROVIDER=gemini,GEMINI_MODEL=gemini-2.5-pro,START_ENDPOINT_TOKEN=change-me,GOOGLE_CHAT_APP_ID=531758065224,CHAT_AUDIENCE=https://agent-formulaire-gchat-531758065224.europe-west1.run.app/chat,CHAT_AUTH_DISABLED=0,USE_MEMORY_STORE=0,USE_REAL_CHAT=1,CHAT_SERVICE_ACCOUNT=agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com"
 if errorlevel 1 exit /b 1
 
 echo.

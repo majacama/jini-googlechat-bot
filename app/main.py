@@ -7,7 +7,7 @@ from app.routers import chat, start
 
 logging.basicConfig(level=logging.INFO)
 
-app = FastAPI(title="Agent formulaire Google Chat", version="0.1.0")
+app = FastAPI(title="Jin Investigator Agent", version="0.1.0")
 app.include_router(start.router)
 app.include_router(chat.router)
 if get_settings().app_env == "dev":

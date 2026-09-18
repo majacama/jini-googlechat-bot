@@ -3,10 +3,26 @@ from pathlib import Path
 
 import pytest
 
+from app.config import get_settings
+from app.dependencies import get_chat_client, get_repo
 from app.models.conversation_state import ConversationState
 from app.models.form_spec import Contact, FormSpec, derive_target_schema
 
 FIXTURES = Path(__file__).parent / "fixtures"
+
+
+@pytest.fixture(autouse=True)
+def _force_stub_llm(monkeypatch: pytest.MonkeyPatch):
+    monkeypatch.setenv("LLM_PROVIDER", "stub")
+    monkeypatch.setenv("USE_MEMORY_STORE", "1")
+    monkeypatch.setenv("CHAT_AUTH_DISABLED", "1")
+    get_settings.cache_clear()
+    get_repo.cache_clear()
+    get_chat_client.cache_clear()
+    yield
+    get_settings.cache_clear()
+    get_repo.cache_clear()
+    get_chat_client.cache_clear()
 
 
 @pytest.fixture

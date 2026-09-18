@@ -35,14 +35,18 @@ def main() -> None:
         description="Déclenche une conversation via POST /start (mode dev local possible)."
     )
     parser.add_argument("--base-url", default="http://localhost:8000")
-    parser.add_argument("--contact-email", required=True)
+    parser.add_argument(
+        "--contact-email",
+        default="",
+        help="Destinataire du DM. Défaut : recipient.email de la spec.",
+    )
     parser.add_argument(
         "--webhook-url",
         default="http://127.0.0.1:8000/dev/webhook",
     )
     parser.add_argument(
         "--form-spec",
-        default=str(ROOT / "tests" / "fixtures" / "form_spec_exemple.json"),
+        default=str(ROOT / "forms" / "nouveau-dossier-client.json"),
     )
     parser.add_argument("--token", default=os.getenv("START_ENDPOINT_TOKEN", ""))
     args = parser.parse_args()
@@ -52,15 +56,30 @@ def main() -> None:
             "START_ENDPOINT_TOKEN manquant. Passe --token ou définis la variable d'environnement."
         )
 
-    contact: dict[str, str] = {"user_email": args.contact_email}
-    user_id = resolve_user_id(args.contact_email)
+    form_spec = load_json(args.form_spec)
+    recipient = form_spec.get("recipient") or {}
+    email = args.contact_email or recipient.get("email")
+    if not email:
+        raise SystemExit(
+            "Passe --contact-email ou définis recipient.email dans la spec JSON."
+        )
+    contact: dict[str, str] = {"user_email": email}
+    if recipient.get("name"):
+        contact["display_name"] = recipient["name"]
+    user_id = resolve_user_id(email) or recipient.get("user_id")
     if user_id:
         contact["user_id"] = user_id
-        print(f"ID Chat résolu : {user_id}")
+        print(f"ID Chat : {user_id}")
+    else:
+        print(
+            "ID Chat introuvable pour cet e-mail. L'API Chat refuse users/email@domaine. "
+            "Ajoute recipient.user_id dans la spec (users/123…) ou ouvre une session ADC "
+            "avec ce compte, puis relance."
+        )
 
     payload = {
         "contact": contact,
-        "form_spec": load_json(args.form_spec),
+        "form_spec": form_spec,
         "webhook_url": args.webhook_url,
     }
     headers = {"Authorization": f"Bearer {args.token}"}
@@ -68,7 +87,13 @@ def main() -> None:
     start_url = f"{args.base_url.rstrip('/')}/start"
     with httpx.Client(timeout=30.0) as client:
         resp = client.post(start_url, json=payload, headers=headers)
-        resp.raise_for_status()
+        if resp.is_error:
+            print(f"HTTP {resp.status_code} sur {start_url}")
+            print(resp.text)
+            if "ton.email@" in email:
+                print()
+                print("« ton.email@jin.fr » était un exemple. Utilise ton vrai e-mail jin.fr.")
+            raise SystemExit(1)
         data = resp.json()
 
     space_id = data.get("space_id")
@@ -84,7 +109,7 @@ def main() -> None:
         )
     else:
         print("Réponds dans Google Chat (même DM).")
-        print("1) nom fournisseur  2) date AAAA-MM-JJ  3) commentaire (ou « skip »).")
+        print(f"Formulaire : {form_spec.get('title') or form_spec.get('form_id')}")
         print(f"JSON final : {args.webhook_url}")
 
 

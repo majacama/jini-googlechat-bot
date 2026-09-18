@@ -1,0 +1,167 @@
+{
+  "_mode_emploi": [
+    "Spec « Nouveau Dossier Client » — paramétrage Drive + espace Chat.",
+    "Les clés qui commencent par _ sont de l'aide, pas lues par l'agent."
+  ],
+
+  "form_id": "nouveau-dossier-client-v1",
+  "title": "Nouveau Dossier Client",
+  "language": "fr",
+
+  "recipient": {
+    "_aide": "Personne à qui l'agent ouvre le DM en premier. L'e-mail suffit : l'ID Chat est résolu au démarrage. user_id (users/123…) reste un repli optionnel.",
+    "name": "Frédéric Diaz",
+    "email": "fdiaz@jin.fr"
+  },
+
+  "tone": {
+    "_aide": "Consignes de style pour TOUT l'échange.",
+    "instructions": "Tutoiement. Ton interne JIN, clair et opérationnel. Pas de blabla. Une question à la fois. Si la personne donne une liste d'e-mails en vrac (virgules, retours à la ligne, « et »), normalise-la. Si elle hésite, rappelle l'exemple ou le choix proposé."
+  },
+
+  "introduction": {
+    "_aide": "Texte envoyé EN PREMIER, avant toute question.",
+    "message": "Bonjour, je suis Jin Investigator Agent. Je vais vérifier avec toi s'il faut bien créer un nouveau dossier client dans le Drive. Et si oui je vais collecter des infos pour le paramétrer ainsi que son espace Google Chat."
+  },
+
+  "interlocutor_validation": {
+    "_aide": "Toujours après l'intro, avant le questionnaire.",
+    "enabled": true,
+    "question": "Es-tu responsable du dossier client ACME ? Donc la bonne personne pour le paramétrer avec moi ?",
+    "if_yes": {
+      "ack": "Parfait, on enchaîne."
+    },
+    "if_no": {
+      "ask_for_replacement": "Pas de souci. Peux-tu m'indiquer le prénom, le nom et l'e-mail de la personne à contacter si tu la connais ?",
+      "action": "start_conversation_with_replacement"
+    },
+    "if_unknown": {
+      "ack": "Merci, je vais escalader le ticket aux OPS pour qu'ils prennent en charge cette demande.",
+      "escalate_to_chat_email": "fdiaz@jin.fr",
+      "escalation_message": "Formulaire {form_id} : {recipient.email} ({recipient.name}) n'est pas le bon interlocuteur pour le dossier client ACME et n'a pas pu indiquer de remplaçant. Space : {space_id}."
+    }
+  },
+
+  "questionnaire": {
+    "_aide_champ": {
+      "id": "identifiant technique unique, snake_case",
+      "required": "true = obligatoire ; false = on peut passer",
+      "max_attempts": "essais avant skip (optionnel) ou escalade (obligatoire)",
+      "question": "question posée dans Chat",
+      "consignes": "règles métier pour l'agent",
+      "format_attendu": "normalisation de la valeur",
+      "exemples": "exemples si la personne bloque",
+      "json_schema": "validation déterministe"
+    },
+    "fields": [
+      {
+        "id": "creation_dossier",
+        "required": true,
+        "max_attempts": 3,
+        "question": "Confirmes-tu qu'il faut créer un nouveau dossier client dans le Drive ?",
+        "consignes": "Réponse affirmative ou négative. Si non : enregistrer non et arrêter, ne pas enchaîner sur les autres champs.",
+        "format_attendu": "oui ou non",
+        "exemples": ["oui", "non"],
+        "stop_values": {
+          "non": "D'accord, on ne crée pas de dossier. Merci, fin de l'échange."
+        },
+        "json_schema": {
+          "type": "string",
+          "enum": ["oui", "non"]
+        }
+      },
+      {
+        "id": "nom_dossier",
+        "required": true,
+        "max_attempts": 3,
+        "question": "Est-ce que le nom de dossier _acme est correct ? Sinon propose un autre nom",
+        "consignes": "Nom technique du dossier Drive. Minuscules, commence forcément par un underscore, pas d'espaces (les remplacer par des tirets hauts). Si le nom commercial est donné (Moulin de Valdonne, Sephora), proposer _moulin-de-valdonne / _sephora et confirmer.",
+        "format_attendu": "Chaîne minuscule, tiret bas obligatoire en début de nom, espaces remplacés par des tirets hauts. Ex. _moulin-de-valdonne",
+        "exemples": ["_sephora", "_loreal", "_moulin-de-valdonne"],
+        "json_schema": {
+          "type": "string",
+          "minLength": 2,
+          "pattern": "^_[a-z0-9]+(?:-[a-z0-9]+)*$"
+        }
+      },
+      {
+        "id": "niveau_securite",
+        "required": true,
+        "max_attempts": 3,
+        "question": "Le dossier ne sera accessible qu'aux Jinners autorisés mais doit-il être visible pour tous ou faut il le cacher car le projet est confidentiel ?",
+        "consignes": "Interpreter la réponse et choisir entre SHOW FOLDER ou HIDE FOLDER.",
+        "format_attendu": "SHOW FOLDER ou HIDE FOLDER",
+        "exemples": ["SHOW FOLDER", "HIDE FOLDER"],
+        "json_schema": {
+          "type": "string",
+          "enum": ["SHOW FOLDER", "HIDE FOLDER"]
+        }
+      },
+      {
+        "id": "equipe_jinners",
+        "required": true,
+        "max_attempts": 3,
+        "question": "Quels sont les e-mails des Jinners qui auront accès au dossier client et à l'espace Google Chat dédié ?",
+        "consignes": "Liste d'e-mails internes. Extraire toutes les adresses même si elles sont collées avec des virgules, des points-virgules ou des retours à la ligne.",
+        "format_attendu": "Tableau d'e-mails.",
+        "exemples": ["marie.martin@jin.fr, paul.durand@jin.fr"],
+        "json_schema": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      {
+        "id": "externes",
+        "required": false,
+        "max_attempts": 2,
+        "question": "Y a-t-il des e-mails d'externes (client, freelance, partenaire) à ajouter au sous-dossier partagé « 04📤 SHARED WITH CLIENT » ? Si non, dis-le simplement.",
+        "consignes": "Facultatif. Si non / aucun / pas d'externe : passer sans valeur. Sinon extraire la liste d'e-mails.",
+        "format_attendu": "Tableau d'e-mails, ou champ sauté.",
+        "exemples": ["contact@client.com"],
+        "json_schema": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      {
+        "id": "membres_externes_chat",
+        "required": false,
+        "max_attempts": 2,
+        "question": "Nous allons aussi créer un espace Google Chat dédié au client. Quels e-mails externes faut-il inviter sur cet espace ? Les mêmes que les externes Drive ? Les mêmes + une liste que tu me donnes ? Aucun ?",
+        "consignes": "Réponse facultative. Interprete la réponse pour constituer la liste d'e-mails.",
+        "format_attendu": "null ou une liste d'e-mails",
+        "exemples": ["client@marque.com", "partner@agence.com"],
+        "json_schema": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string",
+            "format": "email"
+          }
+        }
+      },
+      {
+        "id": "presales_folder_url",
+        "required": false,
+        "max_attempts": 2,
+        "question": "S'il existait un dossier presales, colle ici l'URL du dossier Google Drive : on le déplacera dans le dossier client. Sinon dis non.",
+        "consignes": "Facultatif. Accepter un lien drive.google.com / docs.google.com. Si pas de dossier presales : sauter. Ne pas inventer d'URL.",
+        "format_attendu": "URL https d'un dossier Drive, ou champ sauté.",
+        "exemples": ["https://drive.google.com/drive/folders/xxxxxxxx"],
+        "json_schema": {
+          "type": "string",
+          "format": "uri",
+          "pattern": "^https://(drive|docs)\\.google\\.com/"
+        }
+      }
+    ]
+  }
+}

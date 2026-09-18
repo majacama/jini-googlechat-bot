@@ -39,7 +39,7 @@ pour cet agent (un seul endpoint `POST /chat`).
 
 | Champ | Valeur |
 |---|---|
-| Nom | `Agent formulaire` |
+| Nom | `Jin Investigator Agent` |
 | URL de l'avatar | PNG carré en HTTPS, min 256×256 (fichier public, Drive ne marche souvent pas). Ex. un PNG sur Cloud Storage « public ». |
 | Description | `Remplit un formulaire via un DM Chat` (≤ 40 caractères) |
 
@@ -59,6 +59,10 @@ Note le **numéro du projet (ID de l'application)** (ex. `531758065224`) dans
 URL (même valeur partout si Google exige encore 4 champs) :
 
 `https://<ton-service-cloud-run>/chat`
+
+**Public de l'authentification** : **URL du point de terminaison HTTP** (pas le
+numéro de projet). Doit être **exactement** cette URL `/chat` — c'est l'`aud`
+du JWT vérifié par Cloud Run.
 
 Tu n’as pas encore Cloud Run : tu peux **enregistrer le reste** et coller
 l’URL plus tard, **ou** lancer un tunnel vers le PC :
@@ -109,7 +113,7 @@ l’impersonner (pas de clé JSON) :
 ```powershell
 gcloud iam service-accounts create agent-formulaire-gchat `
   --project admin-jin-fr `
-  --display-name "Agent formulaire GChat"
+  --display-name "Jin Investigator Agent"
 
 gcloud iam service-accounts add-iam-policy-binding `
   agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com `
@@ -144,7 +148,7 @@ DM **Fred ↔ lui**. Tes réponses à toi arrivent dans **ton** Chat, pas sur
 Cloud Run (`POST /chat`). L’agent ne peut plus lire les réponses ni piloter
 le formulaire.
 
-L’agent doit donc être **l’interlocuteur** : DM **Agent formulaire ↔ collaborateur**.
+L’agent doit donc être **l’interlocuteur** : DM **Jin Investigator Agent ↔ collaborateur**.
 Toi tu déclenches (`/start`) ; l’app parle ensuite toute seule.
 
 ### Ce que Google autorise
@@ -170,7 +174,7 @@ Toi tu déclenches (`/start`) ; l’app parle ensuite toute seule.
 Dans GCP → Google Chat API → Configuration → Visibilité :
 
 - Pour le POC : ton e-mail + les collaborateurs de test, **ou**
-- Tout le domaine `jin.fr` si tu veux que chacun puisse trouver **Agent formulaire**
+- Tout le domaine `jin.fr` si tu veux que chacun puisse trouver **Jin Investigator Agent**
 
 **C. Installation Admin (c’est ça qui crée les DM tout seuls)**
 
@@ -185,11 +189,11 @@ Avec une **installation Admin**, Google crée le DM app ↔ user.
 4. Onglet **Fiche Store** :  
    https://console.cloud.google.com/apis/api/appsmarket-component.googleapis.com/googleapps_sdk_publish?project=admin-jin-fr  
    Nom, textes, icônes, puis **Publier** (privée, jin.fr seulement).
-5. **Ensuite seulement** admin.google.com → Marketplace → Installer une application → Agent formulaire.
+5. **Ensuite seulement** admin.google.com → Marketplace → Installer une application → Jin Investigator Agent.
 
 Tant que la fiche Store n’est pas publiée, Admin console ne trouvera **jamais** l’app.
 
-En attendant, teste dans **Google Chat** : Nouveau chat → Agent formulaire → « Bonjour ».
+En attendant, teste dans **Google Chat** : Nouveau chat → Jin Investigator Agent → « Bonjour ».
 
 Attends 2–5 minutes, puis :
 
@@ -198,6 +202,36 @@ Attends 2–5 minutes, puis :
 ```
 
 Tu dois recevoir le message POC dans Google Chat, **sans** avoir écrit à l’app avant.
+
+## 4.1 Directory API — résoudre l’e-mail en ID Chat (sans `user_id` dans le JSON)
+
+L’API Chat `chat.bot` refuse `users/prenom@domaine`. Il faut `users/{id numérique}`.
+Pour que **seul l’e-mail** dans `recipient` suffise, le compte de service doit lire
+l’annuaire Workspace.
+
+Compte de service :
+
+`agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com`
+
+1. Active l’API Admin SDK :  
+   https://console.cloud.google.com/apis/library/admin.googleapis.com?project=admin-jin-fr
+2. https://admin.google.com (compte super admin `fdiaz@jin.fr`)
+3. **Compte** → **Rôles d'administrateur** → **Créer un rôle**
+   - Nom : `Directory users read`
+   - Onglet **Privilèges de l'API Admin** (pas seulement la console) :
+     **Utilisateurs** → **Lire**
+   - Enregistre
+4. Ouvre ce rôle → **Admins** / **Attribuer** → **Attribuer des comptes de service**
+   - Colle `agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com`
+   - Attribue (propagation : 1–10 min)
+5. Vérifie en local (ADC **sans** scope `chat.bot`) :
+
+```powershell
+.\.venv\Scripts\python.exe .\scripts\check_directory_user.py --email fdiaz@jin.fr
+```
+
+Tu dois voir `users/113859878083610238922` (pas `users/fdiaz@jin.fr`).
+Ensuite tu peux retirer `recipient.user_id` du JSON.
 
 ## 5. Lancer le test
 

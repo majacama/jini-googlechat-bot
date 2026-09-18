@@ -13,7 +13,7 @@ import httpx
 from dotenv import load_dotenv
 
 ROOT = Path(__file__).resolve().parent.parent
-DEFAULT_SPEC = ROOT / "tests" / "fixtures" / "form_spec_exemple.json"
+DEFAULT_SPEC = ROOT / "forms" / "nouveau-dossier-client.json"
 
 
 def _load_token(explicit: str) -> str:
@@ -120,7 +120,7 @@ def main() -> None:
 
     parser = argparse.ArgumentParser(description="Dialogue local avec l'agent formulaire.")
     parser.add_argument("--base-url", default="http://127.0.0.1:8000")
-    parser.add_argument("--contact-email", default="collaborateur@jin.fr")
+    parser.add_argument("--contact-email", default="")
     parser.add_argument("--webhook-url", default="http://127.0.0.1:8000/dev/webhook")
     parser.add_argument("--form-spec", default=str(DEFAULT_SPEC))
     parser.add_argument("--token", default="")
@@ -133,7 +133,14 @@ def main() -> None:
     with httpx.Client(timeout=30.0) as client:
         wait_for_server(client, base)
         space_id = start_conversation(
-            client, base, token, args.contact_email, args.webhook_url, form_spec
+            client,
+            base,
+            token,
+            args.contact_email
+            or (form_spec.get("recipient") or {}).get("email")
+            or "collaborateur@jin.fr",
+            args.webhook_url,
+            form_spec,
         )
         state = fetch_state(client, base, space_id, token)
         print(f"Conversation {space_id}  —  {form_spec.get('title') or form_spec.get('form_id')}")

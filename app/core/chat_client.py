@@ -54,7 +54,7 @@ class GoogleChatClient:
             404,
             "Aucun DM app ↔ utilisateur. chat.bot ne permet pas de CRÉER ce DM "
             "(spaces.setup exige d'autres scopes). Dans Google Chat, installe "
-            "« Agent formulaire », envoie-lui un message, puis relance le test.",
+            "« Jin Investigator Agent », envoie-lui un message, puis relance le test.",
         )
 
     def send_message(self, space_id: str, text: str) -> None:
@@ -149,15 +149,21 @@ def _directory_user_id(email: str) -> str | None:
             timeout=15.0,
         )
         if not response.is_success:
-            logger.debug(
+            logger.warning(
                 "directory_lookup_http",
-                extra={"email": email, "status": response.status_code},
+                extra={
+                    "email": email,
+                    "status": response.status_code,
+                    "body": response.text[:300],
+                },
             )
             return None
         user_id = response.json().get("id")
+        if user_id:
+            logger.info("directory_user_resolved", extra={"email": email, "user_id": user_id})
         return str(user_id) if user_id else None
     except Exception:
-        logger.debug("directory_lookup_failed", extra={"email": email}, exc_info=True)
+        logger.warning("directory_lookup_failed", extra={"email": email}, exc_info=True)
         return None
 
 

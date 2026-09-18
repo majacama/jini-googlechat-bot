@@ -1,0 +1,99 @@
+{
+  "_mode_emploi": [
+    "Remplis les sections ci-dessous (tout ce qui n'est pas préfixé par _).",
+    "Ce JSON sera la spec d'un formulaire : destinataire + ton + intro + validation interlocuteur + questions.",
+    "Les clés qui commencent par _ sont de l'aide, pas lues par l'agent."
+  ],
+
+  "form_id": "exemple-v1",
+  "title": "Titre court du formulaire (ex. Onboarding fournisseur)",
+  "language": "fr",
+
+  "recipient": {
+    "_aide": "Personne à qui l'agent ouvre le DM en premier. L'e-mail suffit en général. user_id (users/123…) est un repli optionnel si la résolution Directory échoue.",
+    "name": "Camille Dupont",
+    "email": "camille.dupont@jin.fr"
+  },
+
+  "tone": {
+    "_aide": "Consignes de style pour TOUT l'échange. Une question à la fois est déjà une règle technique ; ici tu précises le registre (tutoiement, vouvoiement, humour, formalisme, vocabulaire métier…).",
+    "instructions": "Tutoiement. Ton professionnel, chaleureux et concis. Pas de jargon inutile. Si la personne hésite, propose un exemple concret."
+  },
+
+  "introduction": {
+    "_aide": "Texte envoyé EN PREMIER, avant toute question (y compris avant la validation interlocuteur).",
+    "message": "Bonjour, je suis Jin Investigator Agent. Je vais te poser quelques questions pour constituer le dossier. Ça prend généralement moins de 5 minutes."
+  },
+
+  "interlocutor_validation": {
+    "_aide": "Toujours après l'intro, avant le questionnaire. Si ce n'est pas la bonne personne : relancer celle indiquée. Si aucun nom/e-mail n'est donné : alerter fdiaz@jin.fr en Chat.",
+    "enabled": true,
+    "question": "Es-tu la bonne personne pour répondre à ce questionnaire ?",
+    "if_yes": {
+      "ack": "Parfait, on enchaîne."
+    },
+    "if_no": {
+      "ask_for_replacement": "Pas de souci. Peux-tu m'indiquer le prénom, le nom et l'e-mail de la personne à contacter ?",
+      "action": "start_conversation_with_replacement"
+    },
+    "if_unknown": {
+      "ack": "Merci, je transmets le sujet.",
+      "escalate_to_chat_email": "fdiaz@jin.fr",
+      "escalation_message": "Formulaire {form_id} : {recipient.email} ({recipient.name}) n'est pas le bon interlocuteur et n'a pas pu indiquer de remplaçant. Space : {space_id}."
+    }
+  },
+
+  "questionnaire": {
+    "_aide_champ": {
+      "id": "identifiant technique unique, snake_case, sans espaces",
+      "required": "true = obligatoire ; false = on peut passer (ex. « non », « rien »)",
+      "max_attempts": "nombre d'essais avant skip (optionnel) ou message d'escalade (obligatoire)",
+      "question": "question posée dans Chat, une à la fois",
+      "consignes": "règles métier pour l'agent (ce qu'il doit exiger, reformuler, refuser)",
+      "format_attendu": "comment normaliser la valeur (ISO date, e-mail, texte libre…)",
+      "exemples": "exemples à citer si la personne bloque",
+      "json_schema": "validation déterministe (pas le LLM). Types usuels : string, number ; formats : date, email"
+    },
+    "fields": [
+      {
+        "id": "nom_fournisseur",
+        "required": true,
+        "max_attempts": 3,
+        "question": "Quel est le nom exact du fournisseur (raison sociale) ?",
+        "consignes": "Raison sociale légale, pas un nom commercial. Si c'est trop court ou une abréviation, demander la forme complète.",
+        "format_attendu": "Texte, au moins 2 caractères.",
+        "exemples": ["Acme SAS", "Renault Group"],
+        "json_schema": {
+          "type": "string",
+          "minLength": 2
+        }
+      },
+      {
+        "id": "date_debut",
+        "required": true,
+        "max_attempts": 3,
+        "question": "À quelle date le contrat démarre-t-il ?",
+        "consignes": "Accepter le langage naturel (demain, dans une semaine, le 12 mars) et convertir.",
+        "format_attendu": "Date ISO AAAA-MM-JJ.",
+        "exemples": ["2026-03-15", "demain"],
+        "json_schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      {
+        "id": "commentaire",
+        "required": false,
+        "max_attempts": 2,
+        "question": "Un commentaire à ajouter ?",
+        "consignes": "Si la personne dit non / rien / pas de commentaire, passer au suivant sans insister.",
+        "format_attendu": "Texte libre, au moins 3 caractères si renseigné.",
+        "exemples": ["RAS", "Relance prévue en octobre"],
+        "json_schema": {
+          "type": "string",
+          "minLength": 3
+        }
+      }
+    ]
+  }
+}

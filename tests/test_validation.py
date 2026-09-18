@@ -1,3 +1,6 @@
+import json
+from pathlib import Path
+
 from app.core.validation import required_fields_complete, validate_field
 from app.models.form_spec import FormSpec
 
@@ -22,3 +25,23 @@ def test_required_fields_complete(form_spec: FormSpec) -> None:
         form_spec,
         {"nom_fournisseur": "Acme SAS", "date_debut": "2026-03-15"},
     )
+
+
+def test_email_list_and_idem_externes() -> None:
+    data = json.loads(
+        (Path(__file__).resolve().parent.parent / "forms" / "nouveau-dossier-client.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    spec = FormSpec.model_validate(data)
+    equipe = spec.field_by_id("equipe_jinners")
+    assert equipe is not None
+    assert validate_field(equipe, "marie.martin@jin.fr, paul.durand@jin.fr").ok
+    membres = spec.field_by_id("membres_externes_chat")
+    assert membres is not None
+    assert not validate_field(membres, "idem externes").ok
+    assert validate_field(membres, ["partner@agence.com"]).ok
+    nom = spec.field_by_id("nom_dossier")
+    assert nom is not None
+    assert validate_field(nom, "_moulin-de-valdonne").ok
+    assert not validate_field(nom, "Sephora").ok

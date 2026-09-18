@@ -4,6 +4,7 @@ from typing import Any
 from jsonschema import Draft202012Validator
 from jsonschema.exceptions import ValidationError
 
+from app.core.text_utils import coerce_extracted_value
 from app.models.form_spec import FieldSpec
 
 
@@ -15,6 +16,7 @@ class ValidationResult:
 
 
 def validate_field(field: FieldSpec, value: Any) -> ValidationResult:
+    value = coerce_extracted_value(field, value)
     validator = Draft202012Validator(
         field.json_schema,
         format_checker=Draft202012Validator.FORMAT_CHECKER,

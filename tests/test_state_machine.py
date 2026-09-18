@@ -24,6 +24,25 @@ def test_accept_value_moves_to_next_field(conversation: ConversationState) -> No
     assert "contrat" in result.message_to_user
 
 
+def test_accept_does_not_forward_llm_extra_questions(conversation: ConversationState) -> None:
+    result = apply_action(
+        conversation,
+        AgentAction(
+            action="confirm_value",
+            field_id="nom_fournisseur",
+            extracted_value="JIN",
+            message_to_user=(
+                "Quelle est l'adresse email du contact ? Un commentaire à ajouter ?"
+            ),
+        ),
+    )
+    assert result.state.answers["nom_fournisseur"] == "JIN"
+    assert result.state.current_field_id == "date_debut"
+    assert "email" not in result.message_to_user.lower()
+    assert "commentaire" not in result.message_to_user.lower()
+    assert "contrat" in result.message_to_user
+
+
 def test_invalid_value_increments_attempts_without_storing(conversation: ConversationState) -> None:
     result = apply_action(
         conversation,

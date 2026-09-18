@@ -18,7 +18,7 @@ HINTS = {
     401: "Jeton refusé. Vérifie ADC (sans scope chat.bot) et CHAT_SERVICE_ACCOUNT.",
     403: "Auth app : pas d'alias email (users/prenom@domaine). Il faut users/{id}. "
     "Ou l'admin n'autorise pas l'app à engager un DM.",
-    404: "Pas encore de DM avec l'app. Installe « Agent formulaire » dans Google Chat, "
+    404: "Pas encore de DM avec l'app. Installe « Jin Investigator Agent » dans Google Chat, "
     "envoie-lui un message, puis relance check-gchat.bat.",
 }
 
@@ -33,7 +33,7 @@ def main() -> None:
     parser.add_argument("--email", required=True, help="ex. collaborateur@jin.fr")
     parser.add_argument(
         "--message",
-        default="POC Agent formulaire : si tu lis ceci, l'ouverture de DM fonctionne.",
+        default="POC Jin Investigator Agent : si tu lis ceci, l'ouverture de DM fonctionne.",
     )
     parser.add_argument(
         "--no-message",

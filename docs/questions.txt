@@ -1,0 +1,10 @@
+Introduction:
+
+Hello, je suis un agent IA JIN qui échange sur Google Chat avec les collaborateurs pour obtenir des réponses à certaines questions.
+Si je te contacte aujourd'hui c'est qu'on a détecté un nouveau dossier client ACME et nous avons besoin d'informations.
+
+Question de validation de l'interlocuteur:
+Est-ce que tu es bien la bonne personne en charge du projet qui pourra me renseigner ?
+Sinon précise moi l'email de la personne responsable.
+
+Question 1:

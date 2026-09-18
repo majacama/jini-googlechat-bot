@@ -1,9 +1,13 @@
+import json
+from pathlib import Path
+
 from fastapi.testclient import TestClient
 
 from app.config import get_settings
 from app.core.chat_client import FakeChatClient
 from app.dependencies import get_chat_client, get_repo
 from app.main import app
+from app.routers.chat import parse_chat_event
 from app.storage.memory_repo import MemoryConversationRepo
 
 
@@ -78,3 +82,65 @@ def test_start_requires_bearer(form_spec) -> None:
         assert still.current_field_id == "date_debut"
     finally:
         app.dependency_overrides.clear()
+
+
+def test_start_accepts_conversation_json_and_recipient() -> None:
+    get_settings.cache_clear()
+    settings = get_settings()
+    settings.start_endpoint_token = "tok"
+    repo = MemoryConversationRepo()
+    chat = FakeChatClient()
+    app.dependency_overrides[get_repo] = lambda: repo
+    app.dependency_overrides[get_chat_client] = lambda: chat
+    spec = json.loads(
+        (
+            Path(__file__).resolve().parent.parent / "forms" / "nouveau-dossier-client.json"
+        ).read_text(encoding="utf-8")
+    )
+    try:
+        client = TestClient(app)
+        response = client.post(
+            "/start",
+            json={"form_spec": spec, "webhook_url": "https://example.test/ingest"},
+            headers={"Authorization": "Bearer tok"},
+        )
+        assert response.status_code == 202
+        space_id = response.json()["space_id"]
+        stored = repo.get(space_id)
+        assert stored is not None
+        assert stored.phase == "interlocutor"
+        assert stored.contact.user_email == "fdiaz@jin.fr"
+        assert "Jin Investigator Agent" in chat.messages[0][1]
+        assert "nom_dossier" not in (stored.current_field_id or "")
+
+        reply = client.post(
+            "/chat",
+            json={
+                "type": "MESSAGE",
+                "space": {"name": space_id},
+                "message": {"text": "oui"},
+            },
+        )
+        assert reply.status_code == 200
+        after = repo.get(space_id)
+        assert after is not None
+        assert after.phase == "questionnaire"
+        assert after.current_field_id == "creation_dossier"
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_parse_chat_event_addon_envelope() -> None:
+    event_type, space_id, message = parse_chat_event(
+        {
+            "chat": {
+                "messagePayload": {
+                    "space": {"name": "spaces/AAA"},
+                    "message": {"text": "Acme SAS", "sender": {"type": "HUMAN"}},
+                }
+            }
+        }
+    )
+    assert event_type == "MESSAGE"
+    assert space_id == "spaces/AAA"
+    assert message["text"] == "Acme SAS"

@@ -1,8 +1,8 @@
-# Agent formulaire Google Chat
+# Jin Investigator Agent
 
-Agent conversationnel générique : on lui passe un contact, une spec de
-formulaire et un webhook ; il ouvre un DM Google Chat, pose les questions,
-valide les réponses, puis POST le JSON final.
+Agent conversationnel générique (Google Chat) : on lui passe une spec JSON
+(`forms/nouveau-dossier-client.json` ou `forms/exemple-a-remplir.json`) ; il ouvre
+un DM, valide l'interlocuteur, pose les questions une à une, puis POST le JSON final.
 
 Spec détaillée : [`docs/SPEC-Agent-Formulaire-GChat.md`](docs/SPEC-Agent-Formulaire-GChat.md).
 
@@ -35,29 +35,19 @@ Le serveur doit déjà tourner (`uvicorn app.main:app --reload`).
 ```powershell
 # 1. Démarrer une conversation — affiche un space_id
 .\.venv\Scripts\python.exe .\scripts\start_conversation.py `
-  --contact-email "collaborateur@jin.fr" `
   --token "change-me"
 
-# 2. Répondre comme le collaborateur (une fois par champ)
+# 2. Répondre dans le DM (intro → « es-tu la bonne personne ? » → questions)
 .\.venv\Scripts\python.exe .\scripts\reply.py `
-  --space-id "spaces/fake-collaborateur@jin.fr" `
-  --text "Acme SAS" `
-  --token "change-me"
-
-.\.venv\Scripts\python.exe .\scripts\reply.py `
-  --space-id "spaces/fake-collaborateur@jin.fr" `
-  --text "2026-03-15" `
-  --token "change-me"
-
-.\.venv\Scripts\python.exe .\scripts\reply.py `
-  --space-id "spaces/fake-collaborateur@jin.fr" `
-  --text "RAS" `
+  --space-id "spaces/fake-fdiaz@jin.fr" `
+  --text "oui" `
   --token "change-me"
 ```
 
-En local, le LLM est un stub : il reprend le texte tel quel. Pour `date_debut`,
-utilise le format ISO `AAAA-MM-JJ`. Le JSON final arrive sur
-`http://127.0.0.1:8000/dev/webhook`.
+En local, le LLM est un stub : il reprend le texte tel quel (sauf listes d'e-mails
+et « non » sur un champ optionnel). Le JSON final arrive sur
+`http://127.0.0.1:8000/dev/webhook`. Le défaut de `--form-spec` est
+`forms/nouveau-dossier-client.json` (destinataire = `recipient.email`).
 
 Raccourcis :
 
