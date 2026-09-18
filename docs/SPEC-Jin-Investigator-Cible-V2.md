@@ -303,9 +303,11 @@ n'est pas renseigné. Correctif :
 3. **Modèle de données (§3)** : **fait (2026-09-18)**, commit `2507c04` —
    `conversations/{space_id}` = canal, `sessions/{session_id}` = historique,
    `/start` refuse (409) d'écraser une session `in_progress`.
-4. **Routeur + registre (§4, §5)** — débloque le cas B en interne (sans
-   encore le RAG, `chercher_dans_le_corpus` peut temporairement répondre
-   « fonctionnalité à venir »). **Prochaine étape.**
+4. **Routeur + registre (§4, §5)** : **fait côté code (2026-09-18)**,
+   commit `c985556` — `chercher_dans_le_corpus` répond un placeholder en
+   attendant le RAG, comme prévu. **Pas encore vérifié en conditions
+   réelles** (vrai Gemini, vrai événement Chat) : à faire avant de
+   considérer le cas B livré — voir §11.
 5. **RAG (§6)** — après le spike de vérification des ACL Drive.
 6. **Bout en bout** sur les 3 cas avec un utilisateur réel autre que Fred,
    puis mise à jour de `SPEC-passation-Claude.md` avec le comportement
@@ -315,9 +317,19 @@ n'est pas renseigné. Correctif :
 
 - ACL du connecteur Drive de Vertex AI Search (§6) — bloquant pour le cas A
   si mal compris.
-- Personnalisation du texte de formulaire pour le cas B (§7.2 point 3) — a
-  un impact sur la rédaction de tous les futurs formulaires, pas seulement
-  celui-ci.
+- **Le routeur (commit `c985556`) n'a été vérifié qu'avec `LLM_PROVIDER=stub`
+  et un `FakeChatClient`.** Jamais testé avec un vrai appel Gemini ni un
+  vrai événement Google Chat entrant. En particulier, `resolve_sender_email`
+  suppose que `sender.email` peut être absent d'un événement `/chat` réel et
+  retombe sur une résolution Directory API inverse (`chat_client.py`) —
+  cette hypothèse elle-même n'est pas vérifiée en conditions réelles.
+- **Personnalisation du texte de formulaire pour le cas B (§7.2 point 3) —
+  non résolu, et maintenant un vrai bug latent, pas juste une note de
+  design.** `nouveau-dossier-client.json` a gagné `trigger_intent` sans que
+  ce point soit tranché : si quelqu'un déclenche ce process depuis le chat
+  pour un client autre qu'ACME, le bot demandera quand même « Es-tu
+  responsable du dossier client ACME ? ». À corriger (option a ou b) avant
+  tout test réel du cas B sur ce formulaire.
 - Sous-collection `sessions/` vs document réécrit à chaque fois (§3) — arbitrage
   effort d'implémentation contre traçabilité.
 - Budget de latence Cloud Run une fois le routeur (un aller-retour LLM
