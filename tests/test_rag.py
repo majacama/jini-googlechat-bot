@@ -1,4 +1,39 @@
-from app.core.rag import RagPassage, _clean_text, build_rag_cards
+import pytest
+
+from app.config import get_settings
+from app.core import rag as rag_module
+from app.core.rag import RagPassage, _clean_text, build_rag_cards, search_corpus
+
+
+@pytest.fixture(autouse=True)
+def _configure_discovery_engine(monkeypatch: pytest.MonkeyPatch):
+    get_settings.cache_clear()
+    monkeypatch.setenv("DISCOVERY_ENGINE_ID", "jin-knowledge-search_test")
+    yield
+    get_settings.cache_clear()
+
+
+def test_search_corpus_without_engine_configured_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("DISCOVERY_ENGINE_ID", "")
+    get_settings.cache_clear()
+    assert search_corpus("question", user_email="fdiaz@jin.fr") == []
+
+
+def test_search_corpus_without_user_email_never_calls_delegation(monkeypatch: pytest.MonkeyPatch) -> None:
+    def _boom(user_email: str) -> str:
+        raise AssertionError("ne doit jamais etre appele sans user_email")
+
+    monkeypatch.setattr(rag_module, "_delegated_access_token", _boom)
+    assert search_corpus("question", user_email=None) == []
+
+
+def test_search_corpus_delegation_failure_returns_empty(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(
+        rag_module,
+        "_delegated_access_token",
+        lambda user_email: (_ for _ in ()).throw(RuntimeError("signJwt a échoué (403)")),
+    )
+    assert search_corpus("question", user_email="marie.martin@jin.fr") == []
 
 
 def test_clean_text_strips_html_entity_escaped_tags() -> None:

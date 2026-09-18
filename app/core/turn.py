@@ -210,6 +210,13 @@ def _route_new_conversation(
 
     if route.action == "search_knowledge_base":
         email = resolve_sender_email(sender)
+        if not email:
+            logger.warning("router_sender_email_unresolved", extra={"space_id": space_id})
+            chat_client.send_message(
+                space_id,
+                "Je n'arrive pas à retrouver ton adresse e-mail pour faire cette recherche.",
+            )
+            return
         query = route.query or text
         try:
             passages = search_corpus(query, user_email=email)
