@@ -56,6 +56,7 @@ async def chat_event(
                 text,
                 repo,
                 chat_client,
+                sender,
             )
     elif event_type == "REMOVED_FROM_SPACE" and space_id:
         logger.info("removed_from_space space=%s", space_id)

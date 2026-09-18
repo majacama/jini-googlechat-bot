@@ -167,6 +167,41 @@ def _directory_user_id(email: str) -> str | None:
         return None
 
 
+def resolve_sender_email(sender: dict[str, Any]) -> str | None:
+    """ID Chat numérique -> e-mail, pour un message reçu à froid (sans /start
+    préalable). Direction inverse de resolve_chat_user_name."""
+    email = (sender.get("email") or "").strip()
+    if email:
+        return email
+    user_id = (sender.get("name") or "").removeprefix("users/").strip()
+    if not user_id:
+        return None
+    return _directory_user_email(user_id)
+
+
+def _directory_user_email(user_id: str) -> str | None:
+    try:
+        token = _directory_token()
+        response = httpx.get(
+            f"{DIRECTORY_API}/users/{user_id}",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=15.0,
+        )
+        if not response.is_success:
+            logger.warning(
+                "directory_reverse_lookup_http",
+                extra={"user_id": user_id, "status": response.status_code},
+            )
+            return None
+        email = response.json().get("primaryEmail")
+        if email:
+            logger.info("directory_user_email_resolved", extra={"user_id": user_id})
+        return email
+    except Exception:
+        logger.warning("directory_reverse_lookup_failed", extra={"user_id": user_id}, exc_info=True)
+        return None
+
+
 def _directory_token() -> str:
     import google.auth
     import google.auth.impersonated_credentials

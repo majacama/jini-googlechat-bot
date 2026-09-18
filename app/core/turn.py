@@ -1,7 +1,9 @@
 import logging
+from typing import Any
 
-from app.core.chat_client import ChatApiError
-from app.core.llm import decide_next_action
+from app.core.chat_client import ChatApiError, resolve_sender_email
+from app.core.llm import decide_next_action, decide_route
+from app.core.process_registry import get_process_registry
 from app.core.state_machine import (
     apply_action,
     opening_message,
@@ -54,7 +56,35 @@ def begin_conversation(
     chat_client,
     webhook_secret: str | None = None,
 ) -> ConversationState:
+    """Cas C (déclenchement externe, /start) : ouvre le DM puis lance la
+    session."""
     space_id = chat_client.create_dm(contact.user_id or contact.user_email)
+    return _start_session(space_id, contact, form_spec, webhook_url, repo, chat_client, webhook_secret)
+
+
+def resume_in_space(
+    space_id: str,
+    contact: Contact,
+    form_spec: FormSpec,
+    webhook_url: str,
+    repo: ConversationRepo,
+    chat_client,
+    webhook_secret: str | None = None,
+) -> ConversationState:
+    """Cas B (déclenchement depuis le chat) : le DM existe déjà, on ne le
+    recrée pas — on lance juste la session dedans."""
+    return _start_session(space_id, contact, form_spec, webhook_url, repo, chat_client, webhook_secret)
+
+
+def _start_session(
+    space_id: str,
+    contact: Contact,
+    form_spec: FormSpec,
+    webhook_url: str,
+    repo: ConversationRepo,
+    chat_client,
+    webhook_secret: str | None = None,
+) -> ConversationState:
     existing = repo.get(space_id)
     if existing is not None and existing.status == "in_progress":
         raise ConversationAlreadyActive(space_id=space_id, form_id=existing.form_id)
@@ -95,10 +125,11 @@ def process_user_message(
     text: str,
     repo: ConversationRepo,
     chat_client,
+    sender: dict[str, Any] | None = None,
 ) -> None:
     state = repo.get(space_id)
     if state is None:
-        logger.warning("unknown_space", extra={"space_id": space_id})
+        _route_new_conversation(space_id, text, sender or {}, repo, chat_client)
         return
     if state.status != "in_progress":
         logger.info("ignored_terminal_state", extra={"space_id": space_id, "status": state.status})
@@ -122,6 +153,93 @@ def process_user_message(
 
     if result.webhook_now:
         _finish(result.state, repo)
+
+
+def _route_new_conversation(
+    space_id: str,
+    text: str,
+    sender: dict[str, Any],
+    repo: ConversationRepo,
+    chat_client,
+) -> None:
+    """Cas A/B : aucune session active sur ce canal, le routeur décide.
+
+    RAG (cas A) pas encore branché (Cible V2 §6) : on répond un message
+    d'attente plutôt que d'inventer une réponse.
+    """
+    if sender.get("type") == "BOT":
+        return
+
+    processes = get_process_registry()
+    try:
+        route = decide_route(text, processes)
+    except Exception:
+        logger.exception("router_failed", extra={"space_id": space_id})
+        chat_client.send_message(
+            space_id,
+            "Désolé, j'ai un souci pour comprendre ta demande. Réessaie dans un instant.",
+        )
+        return
+
+    if route.action == "search_knowledge_base":
+        chat_client.send_message(
+            space_id,
+            "Je ne sais pas encore chercher dans le corpus JIN, cette capacité arrive bientôt. "
+            "Je peux en revanche démarrer certains traitements — dis-moi lequel t'intéresse.",
+        )
+        return
+
+    if route.action == "clarify_needed":
+        chat_client.send_message(space_id, route.message_to_user)
+        return
+
+    definition = next((proc for proc in processes if proc.process_id == route.process_id), None)
+    if definition is None:
+        logger.warning(
+            "router_unknown_process", extra={"space_id": space_id, "process_id": route.process_id}
+        )
+        chat_client.send_message(
+            space_id,
+            "Je n'ai pas reconnu ce traitement, peux-tu reformuler ?",
+        )
+        return
+
+    webhook_url = definition.form_spec.default_webhook_url
+    if not webhook_url:
+        logger.warning("process_no_default_webhook", extra={"process_id": definition.process_id})
+        chat_client.send_message(
+            space_id,
+            "Ce traitement n'est pas encore activable directement depuis le chat. "
+            "Demande à quelqu'un de le déclencher autrement.",
+        )
+        return
+
+    email = resolve_sender_email(sender)
+    if not email:
+        logger.warning("router_sender_email_unresolved", extra={"space_id": space_id})
+        chat_client.send_message(
+            space_id,
+            "Je n'arrive pas à retrouver ton adresse e-mail pour démarrer ce formulaire. "
+            "Peux-tu réessayer plus tard, ou demander à quelqu'un de le déclencher pour toi ?",
+        )
+        return
+
+    contact = Contact(
+        user_email=email,
+        display_name=sender.get("displayName"),
+        user_id=sender.get("name"),
+    )
+    try:
+        resume_in_space(
+            space_id=space_id,
+            contact=contact,
+            form_spec=definition.form_spec,
+            webhook_url=webhook_url,
+            repo=repo,
+            chat_client=chat_client,
+        )
+    except ConversationAlreadyActive:
+        logger.info("route_already_active", extra={"space_id": space_id})
 
 
 def _apply_side_effects(result, repo: ConversationRepo, chat_client):

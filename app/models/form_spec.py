@@ -79,6 +79,14 @@ class FormSpec(IgnoreExtras):
     recipient: Recipient | None = None
     interlocutor_validation: InterlocutorValidation | None = None
     fields: list[FieldSpec]
+    # Registre de process (voir docs/SPEC-Jin-Investigator-Cible-V2.md §5) :
+    # un form_id avec trigger_intent devient déclenchable depuis le chat par
+    # le routeur d'intention, sans passer par /start.
+    trigger_intent: str = ""
+    # Webhook utilisé quand ce process est déclenché depuis le chat (pas via
+    # /start, qui fournit toujours son propre webhook_url). Aucun défaut
+    # métier réel n'existe encore — voir Cible V2 §10, point 2.
+    default_webhook_url: str | None = None
 
     @model_validator(mode="before")
     @classmethod

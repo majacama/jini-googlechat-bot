@@ -13,13 +13,16 @@ from app.core.text_utils import (
     schema_allows_array,
     schema_const_match,
 )
+from app.core.process_registry import ProcessDefinition
 from app.models.conversation_state import AgentAction, ConversationState, HistoryTurn
 from app.models.form_spec import FormSpec
+from app.models.route import RouteAction
 
 PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "system_prompt.md"
 INTERLOCUTOR_PROMPT_PATH = (
     Path(__file__).resolve().parent.parent / "prompts" / "interlocutor_prompt.md"
 )
+ROUTER_PROMPT_PATH = Path(__file__).resolve().parent.parent / "prompts" / "router_prompt.md"
 
 
 class LLMProvider(Protocol):
@@ -30,6 +33,12 @@ class LLMProvider(Protocol):
         user_message: str | None,
     ) -> AgentAction: ...
 
+    def decide_route(
+        self,
+        user_message: str | None,
+        processes: list[ProcessDefinition],
+    ) -> RouteAction: ...
+
 
 def load_system_prompt() -> str:
     return PROMPT_PATH.read_text(encoding="utf-8")
@@ -37,6 +46,21 @@ def load_system_prompt() -> str:
 
 def load_interlocutor_prompt() -> str:
     return INTERLOCUTOR_PROMPT_PATH.read_text(encoding="utf-8")
+
+
+def load_router_prompt() -> str:
+    return ROUTER_PROMPT_PATH.read_text(encoding="utf-8")
+
+
+def render_router_prompt(user_message: str | None, processes: list[ProcessDefinition]) -> str:
+    if processes:
+        listing = "\n".join(f"- {proc.process_id} : {proc.trigger_intent}" for proc in processes)
+    else:
+        listing = "(aucun traitement disponible pour le moment)"
+    return load_router_prompt().format(
+        processes=listing,
+        user_message=user_message or "(vide)",
+    )
 
 
 def render_prompt(
@@ -120,6 +144,13 @@ def decide_next_action(
     return get_llm_provider().decide_next_action(form_spec, state, user_message)
 
 
+def decide_route(
+    user_message: str | None,
+    processes: list[ProcessDefinition],
+) -> RouteAction:
+    return get_llm_provider().decide_route(user_message, processes)
+
+
 class StubProvider:
     """Fournisseur déterministe pour les tests unitaires sans appel réseau."""
 
@@ -176,6 +207,31 @@ class StubProvider:
             field_id=field.id,
             extracted_value=user_message.strip(),
             message_to_user="C'est noté.",
+        )
+
+    def decide_route(
+        self,
+        user_message: str | None,
+        processes: list[ProcessDefinition],
+    ) -> RouteAction:
+        text = (user_message or "").strip().lower()
+        if not text:
+            return RouteAction(
+                action="clarify_needed",
+                message_to_user="Comment puis-je t'aider ?",
+            )
+        for proc in processes:
+            keywords = [word for word in proc.trigger_intent.lower().split() if len(word) > 4]
+            if any(word in text for word in keywords):
+                return RouteAction(
+                    action="start_process",
+                    process_id=proc.process_id,
+                    message_to_user="D'accord, on y va.",
+                )
+        return RouteAction(
+            action="search_knowledge_base",
+            query=user_message,
+            message_to_user="Je cherche ça.",
         )
 
 

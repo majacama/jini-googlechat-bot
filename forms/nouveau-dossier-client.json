@@ -8,6 +8,12 @@
   "title": "Nouveau Dossier Client",
   "language": "fr",
 
+  "_aide_trigger_intent": "Description courte utilisée par le routeur d'intention pour reconnaître une demande de déclenchement depuis le chat (cas B, voir SPEC-Jin-Investigator-Cible-V2.md §5). Sans ce champ, le formulaire reste utilisable via /start mais pas déclenchable en langage naturel.",
+  "trigger_intent": "Créer un nouveau dossier client dans le Drive et son espace Google Chat dédié",
+
+  "_aide_default_webhook_url": "Webhook utilisé UNIQUEMENT quand ce process est déclenché depuis le chat (cas B) — /start fournit toujours le sien. Pointe vers /dev/webhook en attendant le vrai webhook métier (Cible V2 §10, point 2) : à remplacer avant tout usage réel.",
+  "default_webhook_url": "https://agent-formulaire-gchat-531758065224.europe-west1.run.app/dev/webhook",
+
   "recipient": {
     "_aide": "Personne à qui l'agent ouvre le DM en premier. L'e-mail suffit : l'ID Chat est résolu au démarrage. user_id (users/123…) reste un repli optionnel.",
     "name": "Frédéric Diaz",
