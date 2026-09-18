@@ -22,6 +22,8 @@ call gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifac
 if errorlevel 1 exit /b 1
 
 echo [deploy] Deploiement (2-5 min) ...
+REM START_ENDPOINT_TOKEN vit dans Secret Manager (start-endpoint-token) depuis
+REM le 2026-09-18, jamais en clair ici -- voir --set-secrets ci-dessous.
 call gcloud run deploy %SERVICE% ^
   --source . ^
   --project %PROJECT% ^
@@ -32,7 +34,8 @@ call gcloud run deploy %SERVICE% ^
   --memory 512Mi ^
   --no-cpu-throttling ^
   --timeout 60 ^
-  --set-env-vars "APP_ENV=dev,GCP_PROJECT=%PROJECT%,GCP_REGION=%REGION%,FIRESTORE_COLLECTION=conversations,LLM_PROVIDER=gemini,GEMINI_MODEL=gemini-2.5-pro,START_ENDPOINT_TOKEN=change-me,GOOGLE_CHAT_APP_ID=531758065224,CHAT_AUDIENCE=https://agent-formulaire-gchat-531758065224.europe-west1.run.app/chat,CHAT_AUTH_DISABLED=0,USE_MEMORY_STORE=0,USE_REAL_CHAT=1,CHAT_SERVICE_ACCOUNT=agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com"
+  --set-env-vars "APP_ENV=dev,GCP_PROJECT=%PROJECT%,GCP_REGION=%REGION%,FIRESTORE_COLLECTION=conversations,LLM_PROVIDER=gemini,GEMINI_MODEL=gemini-2.5-pro,GOOGLE_CHAT_APP_ID=531758065224,CHAT_AUDIENCE=https://agent-formulaire-gchat-531758065224.europe-west1.run.app/chat,CHAT_AUTH_DISABLED=0,USE_MEMORY_STORE=0,USE_REAL_CHAT=1,CHAT_SERVICE_ACCOUNT=agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com" ^
+  --set-secrets "START_ENDPOINT_TOKEN=start-endpoint-token:latest"
 if errorlevel 1 exit /b 1
 
 echo.

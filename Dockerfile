@@ -6,6 +6,7 @@ ENV PORT=8080
 
 COPY pyproject.toml README.md ./
 COPY app ./app
+COPY forms ./forms
 RUN pip install --no-cache-dir .
 
 EXPOSE 8080
