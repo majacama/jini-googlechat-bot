@@ -1,10 +1,26 @@
-# Jin Investigator Agent
+# jini-googlechat-bot
 
-Agent conversationnel générique (Google Chat) : on lui passe une spec JSON
-(`forms/nouveau-dossier-client.json` ou `forms/exemple-a-remplir.json`) ; il ouvre
-un DM, valide l'interlocuteur, pose les questions une à une, puis POST le JSON final.
+Bot générique JIN sur Google Chat. Cible trois cas d'usage :
 
-Spec détaillée : [`docs/SPEC-Agent-Formulaire-GChat.md`](docs/SPEC-Agent-Formulaire-GChat.md).
+1. **Question de connaissance** — RAG sur le corpus Drive, réponse avec cards
+   citant les documents source.
+2. **Process déclenché depuis le chat** — l'utilisateur demande un traitement
+   (ex. « crée un dossier client »), le bot enchaîne un questionnaire dans le
+   même DM.
+3. **Process déclenché par une app externe** — un système tiers (CRM, etc.)
+   demande au bot de contacter un utilisateur pour mener ce questionnaire.
+
+**État actuel** : seul le moteur de questionnaire est implémenté et testé —
+on lui passe une spec JSON (`forms/nouveau-dossier-client.json` ou
+`forms/exemple-a-remplir.json`) via `POST /start`, il ouvre un DM, valide
+l'interlocuteur, pose les questions une à une, puis POST le JSON final vers
+un webhook. C'est le cas d'usage 3 ci-dessus. Nom affiché sur Chat /
+Marketplace : **Jin Investigator Agent**. Le routeur d'intention (cas 1 et 2)
+et le RAG restent à construire.
+
+- Vérité runtime actuelle : [`docs/SPEC-passation-Claude.md`](docs/SPEC-passation-Claude.md)
+- Cible — routeur, RAG, registre de process : [`docs/SPEC-Jin-Investigator-Cible-V2.md`](docs/SPEC-Jin-Investigator-Cible-V2.md)
+- Spec v1 (périmée, gardée pour mémoire) : [`docs/SPEC-Agent-Formulaire-GChat.md`](docs/SPEC-Agent-Formulaire-GChat.md)
 
 ## Prérequis
 
