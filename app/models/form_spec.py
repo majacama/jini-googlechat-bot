@@ -30,8 +30,8 @@ class InterlocutorNo(IgnoreExtras):
 
 class InterlocutorUnknown(IgnoreExtras):
     ack: str
-    escalate_to_chat_email: str
-    escalation_message: str
+    escalate_to_chat_email: str = ""
+    escalation_message: str = ""
 
 
 class InterlocutorValidation(IgnoreExtras):

@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     use_memory_store: bool = False
     use_real_chat: bool = False
     chat_service_account: str = ""
+    default_handoff_contact: str = "fdiaz@jin.fr"
 
 
 @lru_cache

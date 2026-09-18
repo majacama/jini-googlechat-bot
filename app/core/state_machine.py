@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import Any
 
+from app.config import get_settings
 from app.core.text_utils import render_template
 from app.core.validation import required_fields_complete, validate_field
 from app.models.conversation_state import (
@@ -126,23 +127,31 @@ def apply_interlocutor(state: ConversationState, action: AgentAction) -> TurnRes
         unknown = gate.if_unknown
         ack = unknown.ack if unknown else "Merci, je transmets le sujet."
         record_agent_message(state, ack)
-        escalate_email = unknown.escalate_to_chat_email if unknown else None
-        escalate_message = None
-        if unknown and unknown.escalation_message:
-            recipient = state.form_spec.recipient
-            escalate_message = render_template(
-                unknown.escalation_message,
-                {
-                    "form_id": state.form_id,
-                    "space_id": state.space_id,
-                    "recipient.email": (recipient.email if recipient else state.contact.user_email),
-                    "recipient.name": (
-                        (recipient.name if recipient else None)
-                        or state.contact.display_name
-                        or ""
-                    ),
-                },
-            )
+        # Filet de sécurité : un formulaire qui ne configure pas (ou configure
+        # incomplètement) if_unknown ne doit jamais aboutir à un abandon
+        # silencieux, sans personne notifiée.
+        configured_email = unknown.escalate_to_chat_email if unknown else ""
+        escalate_email = configured_email or get_settings().default_handoff_contact
+        recipient = state.form_spec.recipient
+        configured_message = unknown.escalation_message if unknown else ""
+        message_template = configured_message or (
+            "Formulaire {form_id} : {recipient.email} ({recipient.name}) n'a pas pu "
+            "être validé comme interlocuteur et n'a pas indiqué de remplaçant. "
+            "Space : {space_id}."
+        )
+        escalate_message = render_template(
+            message_template,
+            {
+                "form_id": state.form_id,
+                "space_id": state.space_id,
+                "recipient.email": (recipient.email if recipient else state.contact.user_email),
+                "recipient.name": (
+                    (recipient.name if recipient else None)
+                    or state.contact.display_name
+                    or ""
+                ),
+            },
+        )
         return TurnResult(
             state=state,
             message_to_user=ack,

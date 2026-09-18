@@ -1,6 +1,7 @@
 import json
 from pathlib import Path
 
+from app.config import get_settings
 from app.core.chat_client import FakeChatClient
 from app.core.state_machine import apply_action, opening_message
 from app.core.turn import begin_conversation, process_user_message
@@ -72,6 +73,41 @@ def test_unknown_escalates_and_abandons() -> None:
     assert result.escalate_to_email == "fdiaz@jin.fr"
     assert "nouveau-dossier-client-v1" in (result.escalate_message or "")
     assert "fdiaz@jin.fr" in (result.escalate_message or "")
+
+
+def test_unknown_escalates_to_default_when_if_unknown_missing() -> None:
+    spec = _client_spec()
+    gate = spec.interlocutor_validation
+    assert gate is not None
+    spec = spec.model_copy(
+        update={"interlocutor_validation": gate.model_copy(update={"if_unknown": None})}
+    )
+    result = apply_action(
+        _gated_conversation(spec),
+        AgentAction(action="interlocutor_unknown", message_to_user="Merci."),
+    )
+    assert result.abandon
+    assert result.escalate_to_email == get_settings().default_handoff_contact
+    assert result.escalate_message
+    assert "nouveau-dossier-client-v1" in result.escalate_message
+
+
+def test_unknown_escalates_to_default_when_email_not_configured() -> None:
+    spec = _client_spec()
+    gate = spec.interlocutor_validation
+    assert gate is not None and gate.if_unknown is not None
+    updated_unknown = gate.if_unknown.model_copy(
+        update={"escalate_to_chat_email": "", "escalation_message": ""}
+    )
+    spec = spec.model_copy(
+        update={"interlocutor_validation": gate.model_copy(update={"if_unknown": updated_unknown})}
+    )
+    result = apply_action(
+        _gated_conversation(spec),
+        AgentAction(action="interlocutor_unknown", message_to_user="Merci."),
+    )
+    assert result.escalate_to_email == get_settings().default_handoff_contact
+    assert result.escalate_message
 
 
 def test_replacement_starts_new_conversation() -> None:
