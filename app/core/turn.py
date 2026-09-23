@@ -199,8 +199,9 @@ def _route_new_conversation(
         return
 
     processes = get_process_registry()
+    recent = repo.get_recent_qa(space_id)
     try:
-        route = decide_route(text, processes)
+        route = decide_route(text, processes, recent)
     except Exception:
         logger.exception("router_failed", extra={"space_id": space_id})
         chat_client.send_message(
@@ -211,7 +212,7 @@ def _route_new_conversation(
 
     if route.action == "search_knowledge_base":
         try:
-            result = answer_from_knowledge_base(route.query or text)
+            result = answer_from_knowledge_base(route.query or text, recent)
         except Exception:
             logger.exception("kb_answer_crashed", extra={"space_id": space_id})
             chat_client.send_message(
@@ -223,6 +224,7 @@ def _route_new_conversation(
             result.text,
             cards=build_rag_cards(result.sources) if result.sources else None,
         )
+        repo.add_qa(space_id, route.query or text, result.text)
         return
 
     if route.action == "clarify_needed":

@@ -7,7 +7,10 @@ pas de texte hors du schéma.
 
 - "search_knowledge_base" : le message est une question de connaissance
   (chercher un document, une information du corpus JIN). Renseigne "query"
-  avec la question reformulée pour la recherche.
+  avec la question reformulée pour la recherche, **autonome** : si le message
+  est une suite de la conversation récente (« et pour les pros ? », « sur les
+  appareils professionnels ? »), intègre le contexte nécessaire dans "query"
+  pour qu'elle se comprenne seule.
 - "start_process" : le message demande de déclencher un des traitements
   listés ci-dessous. Renseigne "process_id" avec l'identifiant exact, tel
   qu'il apparaît dans la liste — jamais un identifiant inventé.
@@ -17,5 +20,8 @@ pas de texte hors du schéma.
 
 Traitements disponibles :
 {processes}
+
+Échanges récents avec cet utilisateur (du plus ancien au plus récent) :
+{history}
 
 Message de l'utilisateur : {user_message}

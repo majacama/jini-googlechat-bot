@@ -22,8 +22,9 @@ class AnthropicProvider:
         self,
         user_message: str | None,
         processes: list[ProcessDefinition],
+        recent: list[dict] | None = None,
     ) -> RouteAction:
-        del user_message, processes
+        del user_message, processes, recent
         raise NotImplementedError(
             "LLM_PROVIDER=anthropic n'est pas implémenté en v1. "
             "Garder la même signature decide_route."

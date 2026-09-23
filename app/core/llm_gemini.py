@@ -107,6 +107,7 @@ class GeminiProvider:
         self,
         user_message: str | None,
         processes: list[ProcessDefinition],
+        recent: list[dict] | None = None,
     ) -> RouteAction:
         from google import genai
         from google.genai import types
@@ -126,7 +127,7 @@ class GeminiProvider:
                 "nullable": True,
                 "enum": process_ids,
             }
-        prompt = render_router_prompt(user_message, processes)
+        prompt = render_router_prompt(user_message, processes, recent)
         response = client.models.generate_content(
             model=settings.gemini_model,
             contents=prompt,

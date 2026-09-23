@@ -13,6 +13,12 @@ class ConversationRepo(Protocol):
         """Une session précise, active ou terminée (historique)."""
         ...
 
+    def get_recent_qa(self, space_id: str) -> list[dict]:
+        """Derniers échanges question/réponse (cas A) du canal, récents seulement."""
+        ...
+
+    def add_qa(self, space_id: str, question: str, answer: str) -> None: ...
+
     def save(self, state: ConversationState) -> None:
         """Enregistre la session et met à jour le pointeur `active_session_id`
         du canal : posé tant que `status == 'in_progress'`, libéré sinon."""

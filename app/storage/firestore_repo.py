@@ -1,4 +1,5 @@
 import logging
+import time
 from typing import Any
 
 from app.config import get_settings
@@ -42,6 +43,17 @@ def from_firestore(value: Any) -> Any:
 
 
 SESSIONS_SUBCOLLECTION = "sessions"
+MAX_QA = 4  # échanges gardés pour comprendre les questions de suivi
+QA_TTL_SECONDS = 30 * 60  # au-delà, on considère que c'est un autre sujet
+
+
+def new_qa(question: str, answer: str) -> dict:
+    return {"question": question[:500], "answer": answer[:1500], "at": time.time()}
+
+
+def fresh_qa(turns: list[dict]) -> list[dict]:
+    now = time.time()
+    return [t for t in turns if now - float(t.get("at", 0)) <= QA_TTL_SECONDS]
 
 
 class FirestoreConversationRepo:
@@ -75,6 +87,19 @@ class FirestoreConversationRepo:
         if not snapshot.exists:
             return None
         return ConversationState.model_validate(from_firestore(snapshot.to_dict()))
+
+    def get_recent_qa(self, space_id: str) -> list[dict]:
+        snapshot = self._channel_ref(space_id).get()
+        if not snapshot.exists:
+            return []
+        return fresh_qa((snapshot.to_dict() or {}).get("recent_qa") or [])
+
+    def add_qa(self, space_id: str, question: str, answer: str) -> None:
+        ref = self._channel_ref(space_id)
+        snapshot = ref.get()
+        existing = (snapshot.to_dict() or {}).get("recent_qa") or [] if snapshot.exists else []
+        turns = [*fresh_qa(existing), new_qa(question, answer)][-MAX_QA:]
+        ref.set({"recent_qa": turns}, merge=True)
 
     def save(self, state: ConversationState) -> None:
         channel_ref = self._channel_ref(state.space_id)

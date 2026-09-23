@@ -37,6 +37,7 @@ class LLMProvider(Protocol):
         self,
         user_message: str | None,
         processes: list[ProcessDefinition],
+        recent: list[dict] | None = None,
     ) -> RouteAction: ...
 
 
@@ -52,13 +53,23 @@ def load_router_prompt() -> str:
     return ROUTER_PROMPT_PATH.read_text(encoding="utf-8")
 
 
-def render_router_prompt(user_message: str | None, processes: list[ProcessDefinition]) -> str:
+def format_recent(recent: list[dict] | None) -> str:
+    if not recent:
+        return "(aucun échange récent)"
+    lines = [f"- Question : {t['question']}\n  Réponse : {t['answer'][:400]}" for t in recent]
+    return "\n".join(lines)
+
+
+def render_router_prompt(
+    user_message: str | None, processes: list[ProcessDefinition], recent: list[dict] | None = None
+) -> str:
     if processes:
         listing = "\n".join(f"- {proc.process_id} : {proc.trigger_intent}" for proc in processes)
     else:
         listing = "(aucun traitement disponible pour le moment)"
     return load_router_prompt().format(
         processes=listing,
+        history=format_recent(recent),
         user_message=user_message or "(vide)",
     )
 
@@ -147,8 +158,9 @@ def decide_next_action(
 def decide_route(
     user_message: str | None,
     processes: list[ProcessDefinition],
+    recent: list[dict] | None = None,
 ) -> RouteAction:
-    return get_llm_provider().decide_route(user_message, processes)
+    return get_llm_provider().decide_route(user_message, processes, recent)
 
 
 class StubProvider:
@@ -213,6 +225,7 @@ class StubProvider:
         self,
         user_message: str | None,
         processes: list[ProcessDefinition],
+        recent: list[dict] | None = None,
     ) -> RouteAction:
         text = (user_message or "").strip().lower()
         if not text:

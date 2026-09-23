@@ -41,7 +41,7 @@ def test_cold_message_search_knowledge_base_without_results_says_so(monkeypatch:
     monkeypatch.setattr(
         turn_module,
         "answer_from_knowledge_base",
-        lambda q: KbAnswer("Je n'ai rien trouvé dans les documents JIN pour cette question."),
+        lambda q, h=None: KbAnswer("Je n'ai rien trouvé dans les documents JIN pour cette question."),
     )
     repo = MemoryConversationRepo()
     chat = FakeChatClient()
@@ -61,7 +61,7 @@ def test_cold_message_search_knowledge_base_sends_cards(monkeypatch: pytest.Monk
     from app.core import turn as turn_module
     hit = KbHit("f1", "Contrat cadre Sephora", "https://drive.google.com/x", 0, "...", 0.8)
     monkeypatch.setattr(
-        turn_module, "answer_from_knowledge_base", lambda q: KbAnswer("Oui, un contrat cadre existe.", [hit], True)
+        turn_module, "answer_from_knowledge_base", lambda q, h=None: KbAnswer("Oui, un contrat cadre existe.", [hit], True)
     )
     repo = MemoryConversationRepo()
     chat = FakeChatClient()
@@ -134,3 +134,35 @@ def test_resolve_sender_email_returns_none_without_name_or_email() -> None:
     from app.core.chat_client import resolve_sender_email
 
     assert resolve_sender_email({}) is None
+
+
+def test_follow_up_question_receives_previous_exchange(monkeypatch: pytest.MonkeyPatch) -> None:
+    from app.core import turn as turn_module
+    from app.models.route import RouteAction
+
+    seen: list = []
+
+    def fake_route(text, processes, recent=None):
+        seen.append(recent)
+        return RouteAction(action="search_knowledge_base", query=text, message_to_user="")
+
+    monkeypatch.setattr(turn_module, "decide_route", fake_route)
+    monkeypatch.setattr(
+        turn_module, "answer_from_knowledge_base", lambda q, h=None: KbAnswer(f"réponse à {q}")
+    )
+    repo = MemoryConversationRepo()
+    chat = FakeChatClient()
+    process_user_message(SPACE_ID, "que dit la PSSI sur les mobiles ?", repo, chat, sender=SENDER_WITH_EMAIL)
+    process_user_message(SPACE_ID, "et sur les appareils pro ?", repo, chat, sender=SENDER_WITH_EMAIL)
+    assert seen[0] == []
+    assert seen[1][0]["question"] == "que dit la PSSI sur les mobiles ?"
+    assert "réponse à" in seen[1][0]["answer"]
+
+
+def test_recent_qa_expires_and_is_capped() -> None:
+    repo = MemoryConversationRepo()
+    for i in range(6):
+        repo.add_qa(SPACE_ID, f"q{i}", "a")
+    assert [t["question"] for t in repo.get_recent_qa(SPACE_ID)] == ["q2", "q3", "q4", "q5"]
+    repo._qa[next(iter(repo._qa))][0]["at"] = 0
+    assert len(repo.get_recent_qa(SPACE_ID)) == 3
