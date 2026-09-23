@@ -16,7 +16,7 @@ Compte : `fdiaz@jin.fr` (Owner GCP + super admin Workspace `jin.fr`)
 
 Bot **générique** JIN sur Google Chat, visant trois cas d'usage (détail et état d'avancement : `docs/SPEC-Jin-Investigator-Cible-V2.md`) :
 
-1. **Question de connaissance** (RAG sur le corpus Drive) — **pas construit**, le bot répond un message d'attente.
+1. **Question de connaissance** (RAG sur le Drive partagé « 🧠 jin-knowledge-base ») — **construit** : voir la section « Base de connaissances (RAG) » ci-dessous.
 2. **Process déclenché depuis le chat** — **livré et vérifié en direct le 2026-09-18**. Un message libre dans un DM sans session active passe par un routeur d'intention qui reconnaît la demande et enchaîne le questionnaire, dans le même DM, sans repasser par `/start`.
 3. **Process déclenché par une app externe** (`POST /start`) — le mécanisme d'origine, toujours la base, cas C.
 
@@ -45,7 +45,7 @@ Ne pas renommer le service Cloud Run, l'ID projet, ni le compte de service — �
 | SA Chat | `agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com` |
 | Auth `/start` | Bearer `START_ENDPOINT_TOKEN`, en Secret Manager (`start-endpoint-token`) depuis le 2026-09-18, monté via `--set-secrets` sur Cloud Run — jamais en clair dans `--set-env-vars` |
 | Auth `/chat` | JWT Google Chat (OIDC `chat@system.gserviceaccount.com`, fallback JWT n° projet) |
-| Cloud Run | `--allow-unauthenticated` (même service pour `/start` et `/chat`), `min-instances=1`, `--no-cpu-throttling`, timeout 60s |
+| Cloud Run | `--allow-unauthenticated` (même service pour `/start` et `/chat`), `min-instances=1`, `--cpu-throttling` (CPU facturé uniquement pendant les requêtes ; ~0,3 €/jour attendu au lieu de ~1,4 €), timeout 60s |
 
 Orchestration : **machine à états maison**, pas LangGraph.
 
@@ -62,7 +62,7 @@ POST /chat, repo.get(space_id) -> None (canal libre ou jamais contacté)
         │
         └─ decide_route(text, registre_de_process) — même mécanisme de
            sortie structurée que le questionnaire
-                search_knowledge_base → message d'attente, RAG pas construit
+                search_knowledge_base → recherche Supabase + réponse Gemini sourcée + cartes (app/kb/answer.py)
                 clarify_needed        → message_to_user du LLM tel quel
                 start_process         → resolve_sender_email(sender)
                                          (sender.email direct, sinon
@@ -328,7 +328,7 @@ ou l'équivalent `gcloud run deploy --source . ... --set-secrets "START_ENDPOINT
 
 - Vrai webhook métier (création Drive / espace Chat), pas `/dev/webhook` — vaut aussi pour `default_webhook_url`.
 - Directory API fiable **sur Cloud Run** pour n'importe quel `@jin.fr` (rôle admin « Users → Lire » API sur le SA, voir SETUP-GCP §4.1). En local, Fred est résolu via userinfo. Bloquant pour tester le cas B ou C avec quelqu'un d'autre que Fred.
-- RAG (cas A, recherche corpus) — pas construit, `search_knowledge_base` répond un message d'attente. Point de vérification préalable : les ACL du connecteur Drive de Vertex AI Search (voir Cible V2 §6).
+- RAG (cas A) : construit (Supabase pgvector). Reste : calibrer le seuil de similarité sur ~30 vraies questions, restriction éventuelle à un groupe Google.
 - Confirmer en réel lequel des deux chemins de `resolve_sender_email` (email direct de l'événement Chat vs résolution Directory inverse) sert effectivement — jamais observé explicitement.
 - `stop_values` sur un champ pré-rempli via `field_values` n'interrompt pas la conversation avant ouverture — non géré, à trancher si le cas se présente.
 - `docs/SPEC-Agent-Formulaire-GChat.md` à ne pas suivre aveuglément (flux BackgroundTasks obsolète, ne concerne plus que l'historique).
@@ -344,3 +344,26 @@ ou l'équivalent `gcloud run deploy --source . ... --set-secrets "START_ENDPOINT
 - Ne pas laisser le LLM poser la question du champ suivant : le code s'en charge.
 - Ne pas repasser `START_ENDPOINT_TOKEN` en `--set-env-vars` littéral au déploiement : ça écrase le secret Secret Manager.
 - Ne pas ajouter un dossier lu au runtime (comme `forms/`) sans vérifier qu'il est copié dans le `Dockerfile` — l'échec est silencieux (registre vide), pas une erreur.
+
+
+## Base de connaissances (RAG) — Supabase pgvector
+
+Remplace l'approche Vertex AI Search (abandonnée et supprimée : un data store Workspace ne se requête pas avec un compte de service). La Cible V2 §6 est **obsolète**.
+
+**Flux** : Drive partagé `0AJPyHbAa78YZUk9PVA` (récursif) → job de synchro → extraction texte + découpage (~2200 car.) → embeddings Vertex `gemini-embedding-001` (1536 dim, normalisés) → Supabase, schéma `_jin_knowledge_base` (projet JIN APPS). Question Chat → embedding de la question → `match_chunks` (cosinus) → Gemini rédige une réponse **uniquement** à partir des extraits (s'abstient sinon) → texte + cartes « Ouvrir dans Drive ».
+
+| Élément | Valeur |
+|---|---|
+| Code | `app/kb/` (drive, extract, chunk, embed, store, sync, answer) ; cartes dans `app/core/rag.py` |
+| Schéma SQL | `db/migrations/001_jin_knowledge_base.sql`, doc d'accès dans `db/README.md` |
+| Rôle DB | `jin_kb_bot` (limité au schéma `_jin_knowledge_base`), via pooler Supavisor mode session ; mot de passe **uniquement** dans Secret Manager `jin-kb-db-password` |
+| Bot (Cloud Run service) | tourne en compte de service compute ; reçoit `KB_DB_PASSWORD` par `--set-secrets` |
+| Synchro | Cloud Run Job `jin-kb-sync` (mêmes image, `python -m app.kb.sync`), compte `agent-formulaire-gchat@…` (lecteur du Drive partagé), déclenché par Cloud Scheduler `jin-kb-sync-every-15min` (`*/15 * * * *`, Europe/Paris) |
+| Détection des changements | `modifiedTime` + hash du contenu + nom/chemin ; suppressions répercutées (garde-fou si listing vide) ; verrou advisory anti-chevauchement |
+| Réglages | `KB_TOP_K=8`, `KB_MIN_SIMILARITY=0.66` (scores : 0,68–0,81 pertinent, ~0,64 bruit) |
+| Formats | Google Docs/Slides/Sheets, PDF (texte), docx, pptx, xlsx |
+| Droits | le dossier Drive est la frontière : tout utilisateur du bot peut interroger tout son contenu |
+
+Lancer une synchro à la main : `gcloud run jobs execute jin-kb-sync --region europe-west1 --project admin-jin-fr` (ajouter `--args=-m,app.kb.sync,--dry-run` pour simuler).
+
+Nettoyage fait : connecteur Vertex supprimé, `roles/discoveryengine.viewer` retiré. **À faire côté Admin Workspace** : retirer la délégation à l'échelle du domaine du Client ID `116123081883285191028` (scope `cloud_search.query`), devenue inutile.
