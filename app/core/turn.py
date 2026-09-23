@@ -4,7 +4,7 @@ from typing import Any
 from app.core.chat_client import ChatApiError, resolve_sender_email
 from app.core.llm import decide_next_action, decide_route
 from app.core.process_registry import get_process_registry
-from app.core.rag import build_rag_cards, search_corpus
+from app.core.rag import build_rag_cards
 from app.core.state_machine import (
     apply_action,
     opening_message,
@@ -14,6 +14,7 @@ from app.core.state_machine import (
 from app.core.validation import validate_field
 from app.core.webhook import deliver_completion
 from app.models.conversation_state import ConversationState
+from app.kb.answer import answer_from_knowledge_base
 from app.models.form_spec import Contact, FormSpec, derive_target_schema
 from app.storage.base import ConversationRepo
 
@@ -209,30 +210,18 @@ def _route_new_conversation(
         return
 
     if route.action == "search_knowledge_base":
-        email = resolve_sender_email(sender)
-        if not email:
-            logger.warning("router_sender_email_unresolved", extra={"space_id": space_id})
-            chat_client.send_message(
-                space_id,
-                "Je n'arrive pas à retrouver ton adresse e-mail pour faire cette recherche.",
-            )
-            return
-        query = route.query or text
         try:
-            passages = search_corpus(query, user_email=email)
+            result = answer_from_knowledge_base(route.query or text)
         except Exception:
-            logger.exception("rag_search_crashed", extra={"space_id": space_id})
-            passages = []
-        if not passages:
+            logger.exception("kb_answer_crashed", extra={"space_id": space_id})
             chat_client.send_message(
-                space_id,
-                "Je n'ai rien trouvé dans le corpus JIN pour cette question.",
+                space_id, "Je n'arrive pas à consulter les documents pour le moment, réessaie dans un instant."
             )
             return
         chat_client.send_message(
             space_id,
-            "Voici ce que j'ai trouvé :",
-            cards=build_rag_cards(passages),
+            result.text,
+            cards=build_rag_cards(result.sources) if result.sources else None,
         )
         return
 

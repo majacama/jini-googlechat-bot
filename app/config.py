@@ -20,8 +20,6 @@ class Settings(BaseSettings):
     use_real_chat: bool = False
     chat_service_account: str = ""
     default_handoff_contact: str = "fdiaz@jin.fr"
-    discovery_engine_location: str = "eu"
-    discovery_engine_id: str = ""
     # Base de connaissances : synchronisation Drive partagé -> Supabase (app/kb)
     kb_drive_id: str = ""
     kb_db_host: str = "aws-1-eu-west-3.pooler.supabase.com"
@@ -31,6 +29,10 @@ class Settings(BaseSettings):
     kb_db_password: str = ""
     kb_embedding_model: str = "gemini-embedding-001"
     kb_embedding_dim: int = 1536
+    kb_top_k: int = 8
+    # Les scores cosinus de gemini-embedding-001 sont resserrés : ~0.68-0.81 pour une vraie
+    # correspondance, ~0.64 pour du bruit. Seuil à réajuster sur de vraies questions.
+    kb_min_similarity: float = 0.66
 
 
 @lru_cache

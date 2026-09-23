@@ -48,6 +48,18 @@ class Chunk:
 
 
 @dataclass
+class KbHit:
+    """Un morceau retrouvé par la recherche vectorielle."""
+
+    file_id: str
+    name: str
+    link: str
+    chunk_index: int
+    content: str
+    similarity: float
+
+
+@dataclass
 class SyncStats:
     seen: int = 0
     indexed: int = 0

@@ -17,8 +17,8 @@ echo [deploy] Projet %PROJECT% / region %REGION%
 call gcloud config set project %PROJECT%
 if errorlevel 1 exit /b 1
 
-echo [deploy] Activation des API Cloud Run / Cloud Build / Artifact Registry / Agent Platform / Firestore / Admin SDK / Discovery Engine / Secret Manager ...
-call gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com aiplatform.googleapis.com firestore.googleapis.com admin.googleapis.com discoveryengine.googleapis.com secretmanager.googleapis.com --project %PROJECT%
+echo [deploy] Activation des API Cloud Run / Cloud Build / Artifact Registry / Agent Platform / Firestore / Admin SDK / Secret Manager ...
+call gcloud services enable run.googleapis.com cloudbuild.googleapis.com artifactregistry.googleapis.com aiplatform.googleapis.com firestore.googleapis.com admin.googleapis.com secretmanager.googleapis.com --project %PROJECT%
 if errorlevel 1 exit /b 1
 
 echo [deploy] Deploiement (2-5 min) ...
@@ -34,8 +34,8 @@ call gcloud run deploy %SERVICE% ^
   --memory 512Mi ^
   --cpu-throttling ^
   --timeout 60 ^
-  --set-env-vars "APP_ENV=dev,GCP_PROJECT=%PROJECT%,GCP_REGION=%REGION%,FIRESTORE_COLLECTION=conversations,LLM_PROVIDER=gemini,GEMINI_MODEL=gemini-2.5-pro,GOOGLE_CHAT_APP_ID=531758065224,CHAT_AUDIENCE=https://agent-formulaire-gchat-531758065224.europe-west1.run.app/chat,CHAT_AUTH_DISABLED=0,USE_MEMORY_STORE=0,USE_REAL_CHAT=1,CHAT_SERVICE_ACCOUNT=agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com,DISCOVERY_ENGINE_LOCATION=eu,DISCOVERY_ENGINE_ID=jin-knowledge-search_1789742643460" ^
-  --set-secrets "START_ENDPOINT_TOKEN=start-endpoint-token:latest"
+  --set-env-vars "APP_ENV=dev,GCP_PROJECT=%PROJECT%,GCP_REGION=%REGION%,FIRESTORE_COLLECTION=conversations,LLM_PROVIDER=gemini,GEMINI_MODEL=gemini-2.5-pro,GOOGLE_CHAT_APP_ID=531758065224,CHAT_AUDIENCE=https://agent-formulaire-gchat-531758065224.europe-west1.run.app/chat,CHAT_AUTH_DISABLED=0,USE_MEMORY_STORE=0,USE_REAL_CHAT=1,CHAT_SERVICE_ACCOUNT=agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com,KB_DRIVE_ID=0AJPyHbAa78YZUk9PVA" ^
+  --set-secrets "START_ENDPOINT_TOKEN=start-endpoint-token:latest,KB_DB_PASSWORD=jin-kb-db-password:latest"
 if errorlevel 1 exit /b 1
 
 echo.

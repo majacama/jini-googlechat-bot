@@ -4,7 +4,7 @@ import json
 import logging
 from typing import Protocol
 
-from app.kb.types import Chunk, DriveFile, IndexedDoc, SyncStats, parse_drive_time
+from app.kb.types import Chunk, DriveFile, IndexedDoc, KbHit, SyncStats, parse_drive_time
 
 logger = logging.getLogger(__name__)
 
@@ -138,6 +138,17 @@ class PostgresKbStore:
     def delete_documents(self, file_ids: list[str]) -> None:
         if file_ids:
             self._conn.execute(f"delete from {SCHEMA}.documents where file_id = any(%s)", (file_ids,))
+
+    def search(self, embedding: list[float], top_k: int, min_similarity: float) -> list[KbHit]:
+        """Morceaux les plus proches (distance cosinus), du plus au moins similaire."""
+        rows = self._conn.execute(
+            f"""
+            select file_id, name, web_view_link, chunk_index, content, similarity
+            from {SCHEMA}.match_chunks(%s::public.vector, %s, %s)
+            """,
+            (_vector_literal(embedding), top_k, min_similarity),
+        ).fetchall()
+        return [KbHit(r[0], r[1], r[2] or "", r[3], r[4], float(r[5])) for r in rows]
 
     def start_run(self) -> int:
         row = self._conn.execute(f"insert into {SCHEMA}.sync_runs default values returning id").fetchone()

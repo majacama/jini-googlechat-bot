@@ -2,6 +2,8 @@ import pytest
 
 from app.core.chat_client import FakeChatClient
 from app.core.turn import process_user_message
+from app.kb.answer import KbAnswer
+from app.kb.types import KbHit
 from app.storage.memory_repo import MemoryConversationRepo
 
 SPACE_ID = "spaces/AAAAcold"
@@ -36,7 +38,11 @@ def test_cold_message_starts_process_in_same_space() -> None:
 def test_cold_message_search_knowledge_base_without_results_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core import turn as turn_module
 
-    monkeypatch.setattr(turn_module, "search_corpus", lambda query, user_email=None: [])
+    monkeypatch.setattr(
+        turn_module,
+        "answer_from_knowledge_base",
+        lambda q: KbAnswer("Je n'ai rien trouvé dans les documents JIN pour cette question."),
+    )
     repo = MemoryConversationRepo()
     chat = FakeChatClient()
     process_user_message(
@@ -53,10 +59,10 @@ def test_cold_message_search_knowledge_base_without_results_says_so(monkeypatch:
 
 def test_cold_message_search_knowledge_base_sends_cards(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core import turn as turn_module
-    from app.core.rag import RagPassage
-
-    passages = [RagPassage(title="Contrat cadre Sephora", link="https://drive.google.com/x", snippet="...")]
-    monkeypatch.setattr(turn_module, "search_corpus", lambda query, user_email=None: passages)
+    hit = KbHit("f1", "Contrat cadre Sephora", "https://drive.google.com/x", 0, "...", 0.8)
+    monkeypatch.setattr(
+        turn_module, "answer_from_knowledge_base", lambda q: KbAnswer("Oui, un contrat cadre existe.", [hit], True)
+    )
     repo = MemoryConversationRepo()
     chat = FakeChatClient()
     process_user_message(
