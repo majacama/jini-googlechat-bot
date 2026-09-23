@@ -35,3 +35,6 @@ def configure_logging(level: int = logging.INFO) -> None:
     root = logging.getLogger()
     root.handlers = [handler]
     root.setLevel(level)
+    # Ces bibliothèques loguent chaque requête HTTP en INFO : bruit inutile.
+    for noisy in ("httpx", "httpcore", "urllib3", "google.auth", "google_genai"):
+        logging.getLogger(noisy).setLevel(logging.WARNING)

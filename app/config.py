@@ -22,6 +22,15 @@ class Settings(BaseSettings):
     default_handoff_contact: str = "fdiaz@jin.fr"
     discovery_engine_location: str = "eu"
     discovery_engine_id: str = ""
+    # Base de connaissances : synchronisation Drive partagé -> Supabase (app/kb)
+    kb_drive_id: str = ""
+    kb_db_host: str = "aws-1-eu-west-3.pooler.supabase.com"
+    kb_db_port: int = 5432
+    kb_db_name: str = "postgres"
+    kb_db_user: str = "jin_kb_bot.afospuiklslsddxrseub"
+    kb_db_password: str = ""
+    kb_embedding_model: str = "gemini-embedding-001"
+    kb_embedding_dim: int = 1536
 
 
 @lru_cache
