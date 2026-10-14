@@ -22,7 +22,9 @@ class ChatApiError(RuntimeError):
 class ChatClient(Protocol):
     def create_dm(self, user_email: str) -> str: ...
 
-    def send_message(self, space_id: str, text: str, cards: list[dict[str, Any]] | None = None) -> None: ...
+    def send_message(self, space_id: str, text: str, cards: list[dict[str, Any]] | None = None) -> dict[str, Any] | None: ...
+
+    def update_message(self, message_name: str, cards: list[dict[str, Any]], text: str | None = None) -> None: ...
 
 
 class GoogleChatClient:
@@ -57,15 +59,26 @@ class GoogleChatClient:
             "« Jin Investigator Agent », envoie-lui un message, puis relance le test.",
         )
 
-    def send_message(self, space_id: str, text: str, cards: list[dict[str, Any]] | None = None) -> None:
-        payload: dict[str, Any] = {"text": text}
+    def send_message(self, space_id: str, text: str, cards: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
+        payload: dict[str, Any] = {"text": text} if text or not cards else {}
         if cards:
             payload["cardsV2"] = cards
-        self._post(
+        return self._post(
             f"{CHAT_API}/{space_id}/messages",
             payload,
             action="spaces.messages.create",
         )
+
+    def update_message(self, message_name: str, cards: list[dict[str, Any]], text: str | None = None) -> None:
+        payload: dict[str, Any] = {"cardsV2": cards}
+        mask = "cardsV2"
+        if text is not None:
+            payload["text"] = text
+            mask += ",text"
+        with httpx.Client(timeout=20.0) as client:
+            response = client.patch(f"{CHAT_API}/{message_name}", headers=self._headers(), params={"updateMask": mask}, json=payload)
+        if response.is_error:
+            raise ChatApiError("spaces.messages.patch", response.status_code, response.text)
 
     def _get(self, url: str, params: dict[str, str], action: str) -> dict[str, Any] | None:
         with httpx.Client(timeout=20.0) as client:
@@ -89,16 +102,21 @@ class FakeChatClient:
         self.messages: list[tuple[str, str]] = []
         self.dms: list[str] = []
         self.cards_sent: list[list[dict[str, Any]] | None] = []
+        self.updates: list[tuple[str, list[dict[str, Any]]]] = []
 
     def create_dm(self, user_email: str) -> str:
         space_id = f"spaces/fake-{user_email}"
         self.dms.append(space_id)
         return space_id
 
-    def send_message(self, space_id: str, text: str, cards: list[dict[str, Any]] | None = None) -> None:
+    def send_message(self, space_id: str, text: str, cards: list[dict[str, Any]] | None = None) -> dict[str, Any] | None:
         self.messages.append((space_id, text))
         self.cards_sent.append(cards)
         logger.info("fake_chat_send", extra={"space_id": space_id, "text": text})
+        return {"name": f"{space_id}/messages/{len(self.messages)}"}
+
+    def update_message(self, message_name: str, cards: list[dict[str, Any]], text: str | None = None) -> None:
+        self.updates.append((message_name, cards))
 
 
 def _user_resource_name(identifier: str) -> str:

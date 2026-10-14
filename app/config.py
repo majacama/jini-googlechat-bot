@@ -20,6 +20,14 @@ class Settings(BaseSettings):
     use_real_chat: bool = False
     chat_service_account: str = ""
     default_handoff_contact: str = "fdiaz@jin.fr"
+    # Dossiers clients : serveur MCP admin.jin.fr (spec admin.jin.fr §11)
+    admin_jin_url: str = "https://admin.jin.fr"
+    admin_jin_bot_token: str = ""
+    # Espace IT Operations : cartes de validation et suivi des demandes.
+    it_ops_space: str = "spaces/AAQAT7GKGxc"
+    # Compte de service de Cloud Scheduler, seul autorisé à appeler /tasks/bot-feed.
+    feed_invoker: str = "agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com"
+    dossier_model: str = "gemini-2.5-flash"
     # Base de connaissances : synchronisation Drive partagé -> Supabase (app/kb)
     kb_drive_id: str = ""
     kb_db_host: str = "aws-1-eu-west-3.pooler.supabase.com"

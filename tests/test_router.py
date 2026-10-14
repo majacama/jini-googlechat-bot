@@ -15,7 +15,13 @@ SENDER_WITH_EMAIL = {
 }
 
 
-def test_cold_message_starts_process_in_same_space() -> None:
+def test_cold_message_about_client_folder_starts_dossier_conversation(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Les dossiers clients passent par le serveur MCP admin.jin.fr (app/dossiers)."""
+    from app.core import turn as turn_module
+    from app.dossiers.session import MemoryDossierStore
+
+    started = []
+    monkeypatch.setattr(turn_module, "start_dossier", lambda *args, **kwargs: started.append(args))
     repo = MemoryConversationRepo()
     chat = FakeChatClient()
     process_user_message(
@@ -24,16 +30,10 @@ def test_cold_message_starts_process_in_same_space() -> None:
         repo,
         chat,
         sender=SENDER_WITH_EMAIL,
+        dossier_store=MemoryDossierStore(),
     )
-    state = repo.get(SPACE_ID)
-    assert state is not None
-    assert state.form_id == "nouveau-dossier-client-v1"
-    assert state.contact.user_email == "marie.martin@jin.fr"
-    # Pas de nouveau DM créé : on reste dans l'espace où le message est arrivé.
-    assert chat.dms == []
-    assert chat.messages
-    assert chat.messages[0][0] == SPACE_ID
-
+    assert repo.get(SPACE_ID) is None  # pas de formulaire
+    assert started and started[0][0] == SPACE_ID
 
 def test_cold_message_search_knowledge_base_without_results_says_so(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core import turn as turn_module
@@ -101,20 +101,22 @@ def test_cold_message_bot_sender_is_ignored() -> None:
 
 def test_cold_message_without_resolvable_email_does_not_crash(monkeypatch: pytest.MonkeyPatch) -> None:
     from app.core import chat_client as chat_client_module
+    from app.dossiers.session import MemoryDossierStore
 
     monkeypatch.setattr(chat_client_module, "_directory_user_email", lambda user_id: None)
     repo = MemoryConversationRepo()
     chat = FakeChatClient()
+    store = MemoryDossierStore()
     process_user_message(
         SPACE_ID,
         "il faut créer un nouveau dossier client",
         repo,
         chat,
         sender={"type": "HUMAN", "name": "users/999", "displayName": "Sans email"},
+        dossier_store=store,
     )
-    assert repo.get(SPACE_ID) is None
+    assert store.get(SPACE_ID) is None
     assert "adresse e-mail" in chat.messages[-1][1]
-
 
 def test_resolve_sender_email_prefers_direct_email() -> None:
     from app.core.chat_client import resolve_sender_email
