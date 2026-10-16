@@ -34,8 +34,8 @@ call gcloud run deploy %SERVICE% ^
   --memory 512Mi ^
   --cpu-throttling ^
   --timeout 60 ^
-  --set-env-vars "APP_ENV=dev,GCP_PROJECT=%PROJECT%,GCP_REGION=%REGION%,FIRESTORE_COLLECTION=conversations,LLM_PROVIDER=gemini,GEMINI_MODEL=gemini-2.5-pro,GOOGLE_CHAT_APP_ID=531758065224,CHAT_AUDIENCE=https://agent-formulaire-gchat-531758065224.europe-west1.run.app/chat,CHAT_AUTH_DISABLED=0,USE_MEMORY_STORE=0,USE_REAL_CHAT=1,CHAT_SERVICE_ACCOUNT=agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com,KB_DRIVE_ID=0AJPyHbAa78YZUk9PVA" ^
-  --set-secrets "START_ENDPOINT_TOKEN=start-endpoint-token:latest,KB_DB_PASSWORD=jin-kb-db-password:latest"
+  --set-env-vars "APP_ENV=dev,GCP_PROJECT=%PROJECT%,GCP_REGION=%REGION%,FIRESTORE_COLLECTION=conversations,LLM_PROVIDER=gemini,GEMINI_MODEL=gemini-2.5-pro,GOOGLE_CHAT_APP_ID=531758065224,CHAT_AUDIENCE=https://agent-formulaire-gchat-531758065224.europe-west1.run.app/chat,CHAT_AUTH_DISABLED=0,USE_MEMORY_STORE=0,USE_REAL_CHAT=1,CHAT_SERVICE_ACCOUNT=agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com,KB_DRIVE_ID=0AJPyHbAa78YZUk9PVA,ADMIN_JIN_URL=https://admin.jin.fr,DOSSIER_MODEL=gemini-2.5-flash" ^
+  --set-secrets "START_ENDPOINT_TOKEN=start-endpoint-token:latest,KB_DB_PASSWORD=jin-kb-db-password:latest,ADMIN_JIN_BOT_TOKEN=admin-jin-bot-token:latest"
 if errorlevel 1 exit /b 1
 
 echo.

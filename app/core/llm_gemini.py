@@ -14,7 +14,7 @@ _ROUTE_ACTION_SCHEMA = {
     "properties": {
         "action": {
             "type": "STRING",
-            "enum": ["search_knowledge_base", "start_process", "clarify_needed"],
+            "enum": ["search_knowledge_base", "start_process", "dossier_client", "clarify_needed"],
         },
         "process_id": {"type": "STRING", "nullable": True},
         "query": {"type": "STRING", "nullable": True},

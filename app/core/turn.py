@@ -13,6 +13,7 @@ from app.core.state_machine import (
 )
 from app.core.validation import validate_field
 from app.core.webhook import deliver_completion
+from app.dossiers.handlers import continue_dossier, start_dossier
 from app.models.conversation_state import ConversationState
 from app.kb.answer import answer_from_knowledge_base
 from app.models.form_spec import Contact, FormSpec, derive_target_schema
@@ -158,10 +159,18 @@ def process_user_message(
     repo: ConversationRepo,
     chat_client,
     sender: dict[str, Any] | None = None,
+    dossier_store=None,
 ) -> None:
+    # Conversation « dossier client » en cours (serveur MCP admin.jin.fr) : elle passe avant.
+    if dossier_store is not None:
+        dossier = dossier_store.get(space_id)
+        if dossier is not None:
+            continue_dossier(dossier, text, chat_client, dossier_store)
+            return
+
     state = repo.get(space_id)
     if state is None:
-        _route_new_conversation(space_id, text, sender or {}, repo, chat_client)
+        _route_new_conversation(space_id, text, sender or {}, repo, chat_client, dossier_store)
         return
     if state.status != "in_progress":
         logger.info("ignored_terminal_state", extra={"space_id": space_id, "status": state.status})
@@ -193,6 +202,7 @@ def _route_new_conversation(
     sender: dict[str, Any],
     repo: ConversationRepo,
     chat_client,
+    dossier_store=None,
 ) -> None:
     """Cas A/B : aucune session active sur ce canal, le routeur décide."""
     if sender.get("type") == "BOT":
@@ -229,6 +239,13 @@ def _route_new_conversation(
 
     if route.action == "clarify_needed":
         chat_client.send_message(space_id, route.message_to_user)
+        return
+
+    if route.action == "dossier_client":
+        if dossier_store is None:
+            chat_client.send_message(space_id, "Les dossiers clients ne sont pas disponibles pour le moment.")
+            return
+        start_dossier(space_id, sender, text, chat_client, dossier_store)
         return
 
     definition = next((proc for proc in processes if proc.process_id == route.process_id), None)

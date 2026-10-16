@@ -25,6 +25,27 @@ def verify_start_token(request: Request) -> None:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Unauthorized")
 
 
+def verify_scheduler_request(request: Request) -> None:
+    """Jeton OIDC de Cloud Scheduler, émis pour le compte de service autorisé."""
+    from google.auth.transport import requests as google_requests
+    from google.oauth2 import id_token
+
+    settings = get_settings()
+    token = request.headers.get("Authorization", "").removeprefix("Bearer ").strip()
+    if not token:
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing bearer")
+    audience = str(request.url.replace(query=""))
+    if request.headers.get("x-forwarded-proto") == "https":
+        audience = audience.replace("http://", "https://", 1)
+    try:
+        claims = id_token.verify_oauth2_token(token, google_requests.Request(), audience=audience)
+    except Exception as exc:
+        logger.warning("scheduler_jwt_invalid", extra={"error": str(exc)})
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid token") from None
+    if claims.get("email") != settings.feed_invoker or not claims.get("email_verified"):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Forbidden")
+
+
 def verify_chat_request(request: Request) -> None:
     settings = get_settings()
     if settings.chat_auth_disabled and settings.app_env == "dev":
