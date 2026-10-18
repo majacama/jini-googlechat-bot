@@ -28,6 +28,7 @@ call gcloud run deploy %SERVICE% ^
   --source . ^
   --project %PROJECT% ^
   --region %REGION% ^
+  --service-account agent-formulaire-gchat@%PROJECT%.iam.gserviceaccount.com ^
   --allow-unauthenticated ^
   --min-instances 1 ^
   --max-instances 5 ^
