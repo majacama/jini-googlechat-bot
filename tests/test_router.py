@@ -41,7 +41,7 @@ def test_cold_message_search_knowledge_base_without_results_says_so(monkeypatch:
     monkeypatch.setattr(
         turn_module,
         "answer_from_knowledge_base",
-        lambda q, h=None: KbAnswer("Je n'ai rien trouvé dans les documents JIN pour cette question."),
+        lambda q, h=None, **kw: KbAnswer("Je n'ai rien trouvé dans les documents JIN pour cette question."),
     )
     repo = MemoryConversationRepo()
     chat = FakeChatClient()
@@ -61,7 +61,7 @@ def test_cold_message_search_knowledge_base_sends_cards(monkeypatch: pytest.Monk
     from app.core import turn as turn_module
     hit = KbHit("f1", "Contrat cadre Sephora", "https://drive.google.com/x", 0, "...", 0.8)
     monkeypatch.setattr(
-        turn_module, "answer_from_knowledge_base", lambda q, h=None: KbAnswer("Oui, un contrat cadre existe.", [hit], True)
+        turn_module, "answer_from_knowledge_base", lambda q, h=None, **kw: KbAnswer("Oui, un contrat cadre existe.", [hit], True)
     )
     repo = MemoryConversationRepo()
     chat = FakeChatClient()
@@ -150,7 +150,7 @@ def test_follow_up_question_receives_previous_exchange(monkeypatch: pytest.Monke
 
     monkeypatch.setattr(turn_module, "decide_route", fake_route)
     monkeypatch.setattr(
-        turn_module, "answer_from_knowledge_base", lambda q, h=None: KbAnswer(f"réponse à {q}")
+        turn_module, "answer_from_knowledge_base", lambda q, h=None, **kw: KbAnswer(f"réponse à {q}")
     )
     repo = MemoryConversationRepo()
     chat = FakeChatClient()

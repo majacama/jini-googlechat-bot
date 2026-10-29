@@ -122,8 +122,27 @@ def answer_question(
     return KbAnswer(answer, sources[:MAX_SOURCES], found=True)
 
 
-def answer_from_knowledge_base(question: str, history: list[dict] | None = None) -> KbAnswer:
-    """Point d'entrée production : une connexion Supabase par question (pooler, pas de connexion partagée)."""
+def answer_from_knowledge_base(
+    question: str, history: list[dict] | None = None, acting_user: str | None = None
+) -> KbAnswer:
+    """Point d'entrée production : agent.jin.fr (agent « jinbot »), sinon le moteur local en repli."""
+    settings = get_settings()
+    if settings.kb_engine == "agent_jin" and acting_user:
+        from app.kb.agent_jin import AgentJinError, ask_agent_jin
+
+        try:
+            return ask_agent_jin(question, history, acting_user)
+        except AgentJinError as exc:
+            if not settings.kb_db_password:
+                raise
+            logger.warning("kb_agent_jin_fallback", extra={"error": str(exc)})
+    elif settings.kb_engine == "agent_jin":
+        logger.warning("kb_agent_jin_no_acting_user")
+    return answer_locally(question, history)
+
+
+def answer_locally(question: str, history: list[dict] | None = None) -> KbAnswer:
+    """Ancien moteur : une connexion Supabase par question (pooler, pas de connexion partagée)."""
     settings = get_settings()
     if not settings.kb_db_password:
         logger.warning("kb_not_configured")

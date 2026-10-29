@@ -24,6 +24,8 @@ if errorlevel 1 exit /b 1
 echo [deploy] Deploiement (2-5 min) ...
 REM START_ENDPOINT_TOKEN vit dans Secret Manager (start-endpoint-token) depuis
 REM le 2026-09-18, jamais en clair ici -- voir --set-secrets ci-dessous.
+REM AGENT_JIN_KEY (2026-10-29) : clé de Jinbot pour agent.jin.fr, secret jinbot-agent-jin-fr-key,
+REM lisible par agent-formulaire-gchat@ (roles/secretmanager.secretAccessor sur ce secret).
 call gcloud run deploy %SERVICE% ^
   --source . ^
   --project %PROJECT% ^
@@ -36,7 +38,7 @@ call gcloud run deploy %SERVICE% ^
   --cpu-throttling ^
   --timeout 60 ^
   --set-env-vars "APP_ENV=dev,GCP_PROJECT=%PROJECT%,GCP_REGION=%REGION%,FIRESTORE_COLLECTION=conversations,LLM_PROVIDER=gemini,GEMINI_MODEL=gemini-2.5-pro,GOOGLE_CHAT_APP_ID=531758065224,CHAT_AUDIENCE=https://agent-formulaire-gchat-531758065224.europe-west1.run.app/chat,CHAT_AUTH_DISABLED=0,USE_MEMORY_STORE=0,USE_REAL_CHAT=1,CHAT_SERVICE_ACCOUNT=agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com,KB_DRIVE_ID=0AJPyHbAa78YZUk9PVA,ADMIN_JIN_URL=https://admin.jin.fr,DOSSIER_MODEL=gemini-2.5-flash" ^
-  --set-secrets "START_ENDPOINT_TOKEN=start-endpoint-token:latest,KB_DB_PASSWORD=jin-kb-db-password:latest,ADMIN_JIN_BOT_TOKEN=admin-jin-bot-token:latest"
+  --set-secrets "START_ENDPOINT_TOKEN=start-endpoint-token:latest,KB_DB_PASSWORD=jin-kb-db-password:latest,ADMIN_JIN_BOT_TOKEN=admin-jin-bot-token:latest,AGENT_JIN_KEY=jinbot-agent-jin-fr-key:latest"
 if errorlevel 1 exit /b 1
 
 echo.

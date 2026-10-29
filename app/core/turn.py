@@ -196,6 +196,15 @@ def process_user_message(
         _finish(result.state, repo)
 
 
+def _sender_email(sender: dict[str, Any]) -> str | None:
+    """E-mail de la personne, transmis à agent.jin.fr ; sans lui, le moteur local répond."""
+    try:
+        return resolve_sender_email(sender)
+    except Exception:  # noqa: BLE001 - annuaire indisponible : le moteur local répond
+        logger.warning("kb_sender_email_unresolved")
+        return None
+
+
 def _route_new_conversation(
     space_id: str,
     text: str,
@@ -222,7 +231,7 @@ def _route_new_conversation(
 
     if route.action == "search_knowledge_base":
         try:
-            result = answer_from_knowledge_base(route.query or text, recent)
+            result = answer_from_knowledge_base(route.query or text, recent, acting_user=_sender_email(sender))
         except Exception:
             logger.exception("kb_answer_crashed", extra={"space_id": space_id})
             chat_client.send_message(

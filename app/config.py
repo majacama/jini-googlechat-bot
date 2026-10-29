@@ -28,6 +28,14 @@ class Settings(BaseSettings):
     # Compte de service de Cloud Scheduler, seul autorisé à appeler /tasks/bot-feed.
     feed_invoker: str = "agent-formulaire-gchat@admin-jin-fr.iam.gserviceaccount.com"
     dossier_model: str = "gemini-2.5-flash"
+    # Base de connaissances, cas A : par l'agent « jinbot » d'agent.jin.fr. L'ancien moteur local
+    # (app/kb, index _jin_knowledge_base) reste en repli pendant la bascule (KB_ENGINE=local pour
+    # le forcer) ; agent.jin.fr injoignable -> repli automatique sur le local s'il est configuré.
+    kb_engine: str = "agent_jin"  # agent_jin | local
+    agent_jin_url: str = "https://agent.jin.fr"
+    agent_jin_agent: str = "jinbot"
+    agent_jin_key: str = ""
+    agent_jin_timeout_s: float = 25.0
     # Base de connaissances : synchronisation Drive partagé -> Supabase (app/kb)
     kb_drive_id: str = ""
     kb_db_host: str = "aws-1-eu-west-3.pooler.supabase.com"
