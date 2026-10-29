@@ -14,6 +14,11 @@ pas de texte hors du schéma.
 - "start_process" : le message demande de déclencher un des traitements
   listés ci-dessous. Renseigne "process_id" avec l'identifiant exact, tel
   qu'il apparaît dans la liste — jamais un identifiant inventé.
+- "dossier_client" : le message concerne un dossier client JIN (dossier Drive
+  d'un client, son groupe, son espace Chat, ses dossiers d'année) : en créer un,
+  ajouter une année, savoir qui y a accès, y ajouter des personnes, connaître son
+  état. Exemples : « il me faut un dossier client pour Crédit Agricole », « crée
+  le dossier 2027 de Sephora », « qui a accès au dossier _natran ? ».
 - "clarify_needed" : le message est ambigu, un simple salut, ou ne
   correspond à rien de ce qui précède. "message_to_user" doit expliquer
   brièvement, en une ou deux phrases, ce que tu sais faire.

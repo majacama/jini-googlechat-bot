@@ -346,24 +346,16 @@ ou l'équivalent `gcloud run deploy --source . ... --set-secrets "START_ENDPOINT
 - Ne pas ajouter un dossier lu au runtime (comme `forms/`) sans vérifier qu'il est copié dans le `Dockerfile` — l'échec est silencieux (registre vide), pas une erreur.
 
 
-## Base de connaissances (RAG) — Supabase pgvector
+## Base de connaissances (RAG) — agent.jin.fr
 
-Remplace l'approche Vertex AI Search (abandonnée et supprimée : un data store Workspace ne se requête pas avec un compte de service). La Cible V2 §6 est **obsolète**.
-
-**Flux** : Drive partagé `0AJPyHbAa78YZUk9PVA` (récursif) → job de synchro → extraction texte + découpage (~2200 car.) → embeddings Vertex `gemini-embedding-001` (1536 dim, normalisés) → Supabase, schéma `_jin_knowledge_base` (projet JIN APPS). Question Chat → embedding de la question → `match_chunks` (cosinus) → Gemini rédige une réponse **uniquement** à partir des extraits (s'abstient sinon) → texte + cartes « Ouvrir dans Drive ».
+Depuis le 29/10/2026, Jinbot pose les questions de type « cas A » à l'agent `jinbot` de la plateforme agent.jin.fr (`POST https://agent.jin.fr/v1/agents/jinbot/ask`, code `app/kb/agent_jin.py`). La plateforme synchronise le Drive, cherche dans ses RAG-Data-Sources et rédige la réponse ; le bot affiche le texte et une carte « Ouvrir dans Drive » par source (`app/core/rag.py`).
 
 | Élément | Valeur |
 |---|---|
-| Code | `app/kb/` (drive, extract, chunk, embed, store, sync, answer) ; cartes dans `app/core/rag.py` |
-| Schéma SQL | `db/migrations/001_jin_knowledge_base.sql`, doc d'accès dans `db/README.md` |
-| Rôle DB | `jin_kb_bot` (limité au schéma `_jin_knowledge_base`), via pooler Supavisor mode session ; mot de passe **uniquement** dans Secret Manager `jin-kb-db-password` |
-| Bot (Cloud Run service) | tourne en compte de service compute ; reçoit `KB_DB_PASSWORD` par `--set-secrets` |
-| Synchro | Cloud Run Job `jin-kb-sync` (mêmes image, `python -m app.kb.sync`), compte `agent-formulaire-gchat@…` (lecteur du Drive partagé), déclenché par Cloud Scheduler `jin-kb-sync-every-15min` (`*/15 * * * *`, Europe/Paris) |
-| Détection des changements | `modifiedTime` + hash du contenu + nom/chemin ; suppressions répercutées (garde-fou si listing vide) ; verrou advisory anti-chevauchement |
-| Réglages | `KB_TOP_K=8`, `KB_MIN_SIMILARITY=0.66` (scores : 0,68–0,81 pertinent, ~0,64 bruit) |
-| Formats | Google Docs/Slides/Sheets, PDF (texte), docx, pptx, xlsx |
-| Droits | le dossier Drive est la frontière : tout utilisateur du bot peut interroger tout son contenu |
+| Authentification | clé d'application `AGENT_JIN_KEY` (secret `jinbot-agent-jin-fr-key`) + en-tête `X-Acting-User` (e-mail de la personne, obligatoire) |
+| Réglages | agent, prompt et sources se règlent dans admin.jin.fr › IA › Agents (`jinbot`), pas dans le bot |
+| Panne | agent.jin.fr injoignable ou en erreur : le bot répond « Je n'arrive pas à consulter les documents… » (pas de moteur de repli) |
 
-Lancer une synchro à la main : `gcloud run jobs execute jin-kb-sync --region europe-west1 --project admin-jin-fr` (ajouter `--args=-m,app.kb.sync,--dry-run` pour simuler).
+Ancien moteur interne (Supabase `_jin_knowledge_base`, job `jin-kb-sync`, rôle `jin_kb_bot`, secret `jin-kb-db-password`) : retiré le 29/10/2026, avec son code (`app/kb/` sauf `agent_jin.py`, `db/`).
 
 Nettoyage fait : connecteur Vertex supprimé, `roles/discoveryengine.viewer` retiré. **À faire côté Admin Workspace** : retirer la délégation à l'échelle du domaine du Client ID `116123081883285191028` (scope `cloud_search.query`), devenue inutile.

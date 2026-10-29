@@ -233,6 +233,8 @@ class StubProvider:
                 action="clarify_needed",
                 message_to_user="Comment puis-je t'aider ?",
             )
+        if "dossier client" in text or "dossiers clients" in text:
+            return RouteAction(action="dossier_client", message_to_user="Je regarde ça.")
         for proc in processes:
             keywords = [word for word in proc.trigger_intent.lower().split() if len(word) > 4]
             if any(word in text for word in keywords):
