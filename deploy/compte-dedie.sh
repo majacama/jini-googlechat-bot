@@ -40,7 +40,7 @@ case "${1:-}" in
     gcloud iam service-accounts remove-iam-policy-binding "$AGENT" --project "$PROJECT" \
       --member="serviceAccount:$DEFAUT" --role=roles/iam.serviceAccountTokenCreator --condition=None >/dev/null
     echo "Le compte par défaut ne peut plus agir au nom de l'agent."
-    for s in admin-jin-bot-token jin-kb-db-password start-endpoint-token; do
+    for s in admin-jin-bot-token start-endpoint-token; do
       gcloud secrets remove-iam-policy-binding "$s" --project "$PROJECT" \
         --member="serviceAccount:$DEFAUT" --role=roles/secretmanager.secretAccessor --condition=None >/dev/null
       echo "Lecture de $s retirée au compte par défaut."

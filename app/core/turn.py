@@ -197,10 +197,10 @@ def process_user_message(
 
 
 def _sender_email(sender: dict[str, Any]) -> str | None:
-    """E-mail de la personne, transmis à agent.jin.fr ; sans lui, le moteur local répond."""
+    """E-mail de la personne, transmis à agent.jin.fr (obligatoire pour l'interroger)."""
     try:
         return resolve_sender_email(sender)
-    except Exception:  # noqa: BLE001 - annuaire indisponible : le moteur local répond
+    except Exception:  # noqa: BLE001 - annuaire indisponible
         logger.warning("kb_sender_email_unresolved")
         return None
 

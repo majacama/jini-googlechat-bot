@@ -1,4 +1,4 @@
-"""Cas A par agent.jin.fr : contrat de /v1/agents/jinbot/ask et repli sur le moteur local."""
+"""Cas A par agent.jin.fr : contrat de /v1/agents/jinbot/ask."""
 
 from typing import Any
 
@@ -24,7 +24,6 @@ class Response:
 def settings(monkeypatch: pytest.MonkeyPatch):
     s = get_settings()
     monkeypatch.setattr(s, "agent_jin_key", "jinag_test")
-    monkeypatch.setattr(s, "kb_engine", "agent_jin")
     return s
 
 
@@ -78,25 +77,18 @@ def test_http_errors_and_timeouts_raise(settings, monkeypatch: pytest.MonkeyPatc
         ask_agent_jin("q", None, "a@jin.fr")
 
 
-def test_falls_back_to_the_local_engine_when_agent_jin_fails(settings, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_errors_reach_the_bot_without_fallback(settings, monkeypatch: pytest.MonkeyPatch) -> None:
     def failing(*a: Any, **k: Any) -> KbAnswer:
         raise AgentJinError("agent.jin.fr 503")
 
     monkeypatch.setattr(agent_jin, "ask_agent_jin", failing)
-    monkeypatch.setattr(answer, "answer_locally", lambda q, h=None: KbAnswer("réponse locale", found=True))
-    monkeypatch.setattr(settings, "kb_db_password", "secret")
-    assert answer.answer_from_knowledge_base("q", None, acting_user="a@jin.fr").text == "réponse locale"
-    # Sans moteur local configuré, l'erreur remonte (le bot affiche son message d'indisponibilité).
-    monkeypatch.setattr(settings, "kb_db_password", "")
+    # L'erreur remonte : le bot affiche son message d'indisponibilité.
     with pytest.raises(AgentJinError):
         answer.answer_from_knowledge_base("q", None, acting_user="a@jin.fr")
 
 
-def test_local_engine_without_acting_user_or_when_forced(settings, monkeypatch: pytest.MonkeyPatch) -> None:
+def test_unknown_acting_user_is_not_sent(settings, monkeypatch: pytest.MonkeyPatch) -> None:
     called: list[str] = []
     monkeypatch.setattr(agent_jin, "ask_agent_jin", lambda *a, **k: called.append("agent") or KbAnswer("agent"))
-    monkeypatch.setattr(answer, "answer_locally", lambda q, h=None: called.append("local") or KbAnswer("local"))
-    answer.answer_from_knowledge_base("q", None, acting_user=None)
-    monkeypatch.setattr(settings, "kb_engine", "local")
-    answer.answer_from_knowledge_base("q", None, acting_user="a@jin.fr")
-    assert called == ["local", "local"]
+    result = answer.answer_from_knowledge_base("q", None, acting_user=None)
+    assert called == [] and not result.found
