@@ -23,13 +23,19 @@ class AgentJinError(RuntimeError):
     """agent.jin.fr injoignable, délai dépassé ou réponse inattendue (pas « rien trouvé »)."""
 
 
-def _history(recent: list[dict] | None) -> list[dict[str, str]]:
+def _history(recent: list[dict] | None) -> list[dict[str, Any]]:
     """Échanges récents du canal, au format de la plateforme (les plus anciens d'abord)."""
     turns = []
     for turn in recent or []:
         question, answer = str(turn.get("question") or ""), str(turn.get("answer") or "")
         if question and answer:
-            turns.append({"question": question[:2000], "answer": answer[:4000]})
+            exchange: dict[str, Any] = {"question": question[:2000], "answer": answer[:4000]}
+            if turn.get("sources"):
+                exchange["sources"] = [
+                    {"name": str(s.get("name") or "")[:300], "link": str(s.get("link") or "")[:1000]}
+                    for s in turn["sources"][:10]
+                ]
+            turns.append(exchange)
     return turns[-4:]
 
 

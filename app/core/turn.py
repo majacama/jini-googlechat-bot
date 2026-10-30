@@ -243,7 +243,12 @@ def _route_new_conversation(
             result.text,
             cards=build_rag_cards(result.sources) if result.sources else None,
         )
-        repo.add_qa(space_id, route.query or text, result.text)
+        repo.add_qa(
+            space_id,
+            route.query or text,
+            result.text,
+            [{"name": s.name, "link": s.link} for s in result.sources],
+        )
         return
 
     if route.action == "clarify_needed":
