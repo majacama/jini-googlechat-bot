@@ -11,6 +11,12 @@ pas de texte hors du schéma.
   est une suite de la conversation récente (« et pour les pros ? », « sur les
   appareils professionnels ? »), intègre le contexte nécessaire dans "query"
   pour qu'elle se comprenne seule.
+  Une relance qui renvoie à un échange récent est toujours une recherche,
+  même sans point d'interrogation : demande de lien ou de document
+  (« donne-moi le lien vers l'offre »), de précision (« plus de détails »,
+  « et le prix ? »), ou rappel (« j'en ai parlé juste au-dessus »). La
+  "query" nomme alors explicitement le sujet de l'échange récent, par
+  exemple « lien vers le document de l'offre GEO de JIN ».
 - "start_process" : le message demande de déclencher un des traitements
   listés ci-dessous. Renseigne "process_id" avec l'identifiant exact, tel
   qu'il apparaît dans la liste — jamais un identifiant inventé.
@@ -19,8 +25,9 @@ pas de texte hors du schéma.
   ajouter une année, savoir qui y a accès, y ajouter des personnes, connaître son
   état. Exemples : « il me faut un dossier client pour Crédit Agricole », « crée
   le dossier 2027 de Sephora », « qui a accès au dossier _natran ? ».
-- "clarify_needed" : le message est ambigu, un simple salut, ou ne
-  correspond à rien de ce qui précède. "message_to_user" doit expliquer
+- "clarify_needed" : le message est un simple salut, ou il est ambigu et
+  aucun échange récent ne permet de le comprendre, ou il ne correspond à
+  rien de ce qui précède. "message_to_user" doit expliquer
   brièvement, en une ou deux phrases, ce que tu sais faire.
 
 Traitements disponibles :
