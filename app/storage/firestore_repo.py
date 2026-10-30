@@ -47,8 +47,13 @@ MAX_QA = 4  # échanges gardés pour comprendre les questions de suivi
 QA_TTL_SECONDS = 30 * 60  # au-delà, on considère que c'est un autre sujet
 
 
-def new_qa(question: str, answer: str) -> dict:
-    return {"question": question[:500], "answer": answer[:1500], "at": time.time()}
+def new_qa(question: str, answer: str, sources: list[dict] | None = None) -> dict:
+    """Un échange ; `sources` : documents montrés avec la réponse ({name, link}), pour comprendre
+    « donne-moi le lien » ou « c'est quoi ce document ? » à l'échange suivant."""
+    turn = {"question": question[:500], "answer": answer[:1500], "at": time.time()}
+    if sources:
+        turn["sources"] = [{"name": s["name"][:300], "link": s.get("link", "")[:1000]} for s in sources[:5]]
+    return turn
 
 
 def fresh_qa(turns: list[dict]) -> list[dict]:
@@ -94,11 +99,11 @@ class FirestoreConversationRepo:
             return []
         return fresh_qa((snapshot.to_dict() or {}).get("recent_qa") or [])
 
-    def add_qa(self, space_id: str, question: str, answer: str) -> None:
+    def add_qa(self, space_id: str, question: str, answer: str, sources: list[dict] | None = None) -> None:
         ref = self._channel_ref(space_id)
         snapshot = ref.get()
         existing = (snapshot.to_dict() or {}).get("recent_qa") or [] if snapshot.exists else []
-        turns = [*fresh_qa(existing), new_qa(question, answer)][-MAX_QA:]
+        turns = [*fresh_qa(existing), new_qa(question, answer, sources)][-MAX_QA:]
         ref.set({"recent_qa": turns}, merge=True)
 
     def save(self, state: ConversationState) -> None:

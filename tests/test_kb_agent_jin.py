@@ -43,14 +43,19 @@ def test_ask_sends_question_history_and_acting_user(settings, monkeypatch: pytes
         )
 
     monkeypatch.setattr(agent_jin.httpx, "post", post)
-    recent = [{"question": "Q1", "answer": "R1", "at": 1}, {"question": "", "answer": "x"}]
+    recent = [
+        {"question": "Q1", "answer": "R1", "at": 1, "sources": [{"name": "Deck GEO", "link": "https://drive/9"}]},
+        {"question": "", "answer": "x"},
+    ]
     result = ask_agent_jin("Qui est l'assureur prévoyance ?", recent, "marie.martin@jin.fr")
     assert result.found and result.text == "Malakoff."
     assert result.sources[0].name == "Notice prévoyance.pdf" and result.sources[0].link == "https://drive/1"
     call = calls[0]
     assert call["url"] == "https://agent.jin.fr/v1/agents/jinbot/ask"
     assert call["headers"] == {"authorization": "Bearer jinag_test", "x-acting-user": "marie.martin@jin.fr"}
-    assert call["json"]["history"] == [{"question": "Q1", "answer": "R1"}]
+    assert call["json"]["history"] == [
+        {"question": "Q1", "answer": "R1", "sources": [{"name": "Deck GEO", "link": "https://drive/9"}]}
+    ]
     assert call["json"]["channel"] == "chat"
 
 

@@ -22,9 +22,9 @@ class MemoryConversationRepo:
     def get_recent_qa(self, space_id: str) -> list[dict]:
         return fresh_qa(self._qa.get(document_id_from_space(space_id), []))
 
-    def add_qa(self, space_id: str, question: str, answer: str) -> None:
+    def add_qa(self, space_id: str, question: str, answer: str, sources: list[dict] | None = None) -> None:
         doc_id = document_id_from_space(space_id)
-        self._qa[doc_id] = [*fresh_qa(self._qa.get(doc_id, [])), new_qa(question, answer)][-MAX_QA:]
+        self._qa[doc_id] = [*fresh_qa(self._qa.get(doc_id, [])), new_qa(question, answer, sources)][-MAX_QA:]
 
     def save(self, state: ConversationState) -> None:
         doc_id = document_id_from_space(state.space_id)

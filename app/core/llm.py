@@ -56,7 +56,12 @@ def load_router_prompt() -> str:
 def format_recent(recent: list[dict] | None) -> str:
     if not recent:
         return "(aucun échange récent)"
-    lines = [f"- Question : {t['question']}\n  Réponse : {t['answer'][:400]}" for t in recent]
+    lines = []
+    for t in recent:
+        line = f"- Question : {t['question']}\n  Réponse : {t['answer'][:400]}"
+        if t.get("sources"):
+            line += "\n  Documents cités : " + " ; ".join(f"« {s['name']} »" for s in t["sources"])
+        lines.append(line)
     return "\n".join(lines)
 
 
